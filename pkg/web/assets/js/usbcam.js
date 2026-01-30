@@ -379,17 +379,233 @@ export class USBCamManager {
         // Stop any existing preview first
         await this.stopPreview();
 
-        // Start HTTP MJPEG preview (instant, no buffering)
+        // Show preview settings modal
+        this.showPreviewSettingsModal(cameraId);
+    }
+
+    showPreviewSettingsModal(cameraId) {
+        const cs = this.cameras.find(c => c.camera.id === cameraId);
+        if (!cs) return;
+
+        const cam = cs.camera;
+
+        // Build supported combos from actual camera formats
+        const combos = [];
+        const seen = new Set();
+
+        if (cam.formats && cam.formats.length > 0) {
+            // Extract actual resolution+fps combinations from camera
+            for (const fmt of cam.formats) {
+                if (!fmt.fps || fmt.fps.length === 0) continue;
+                
+                for (const fps of fmt.fps) {
+                    const key = `${fmt.width}x${fmt.height}@${fps}`;
+                    if (!seen.has(key)) {
+                        seen.add(key);
+                        combos.push({
+                            label: `${fmt.width}x${fmt.height} @ ${fps}fps`,
+                            width: fmt.width,
+                            height: fmt.height,
+                            fps: fps
+                        });
+                    }
+                }
+            }
+            
+            // Sort combos: by resolution descending, then by fps descending
+            combos.sort((a, b) => {
+                const resA = a.width * a.height;
+                const resB = b.width * b.height;
+                if (resA !== resB) return resB - resA;
+                return b.fps - a.fps;
+            });
+        } else {
+            // Fallback if no formats detected
+            const resolutions = this.getUniqueResolutions(cam);
+            const fpsOptions = [15, 24, 30, 60];
+            for (const res of resolutions) {
+                for (const fps of fpsOptions) {
+                    combos.push({
+                        label: `${res.width}x${res.height} @ ${fps}fps`,
+                        width: res.width,
+                        height: res.height,
+                        fps: fps
+                    });
+                }
+            }
+        }
+
+        let modal = document.getElementById('usbcamPreviewSettingsModal');
+        if (!modal) {
+            modal = document.createElement('div');
+            modal.id = 'usbcamPreviewSettingsModal';
+            modal.className = 'modal';
+            modal.innerHTML = `
+                <div class="modal-content config-modal">
+                    <div class="modal-header">
+                        <h2>Preview Settings</h2>
+                        <button class="modal-close" id="closePreviewSettingsModal">&times;</button>
+                    </div>
+                    <div class="modal-body">
+                        <form id="usbcamPreviewSettingsForm">
+                            <div class="form-group">
+                                <label>Camera</label>
+                                <input type="text" id="previewModalName" readonly />
+                            </div>
+
+                            <div class="form-section">
+                                <h3>Preset Configurations</h3>
+                                <div class="form-group">
+                                    <label for="previewCombo">Supported Resolution + FPS</label>
+                                    <select id="previewCombo"></select>
+                                    <small>Select a combination known to work with your camera</small>
+                                </div>
+                            </div>
+
+                            <div class="form-section">
+                                <h3>Quality Settings</h3>
+                                <div class="form-group">
+                                    <label for="previewBitrate">Bitrate (Kbps)</label>
+                                    <input type="number" id="previewBitrate" value="3000" min="500" max="50000" step="100" />
+                                    <small>MJPEG quality: higher = better quality but more bandwidth</small>
+                                </div>
+                            </div>
+
+                            <div class="form-section">
+                                <label>
+                                    <input type="checkbox" id="previewAdvanced" />
+                                    Advanced: Override resolution & FPS
+                                </label>
+                            </div>
+
+                            <div id="previewAdvancedSettings" style="display: none;" class="form-section">
+                                <div class="form-row">
+                                    <div class="form-group">
+                                        <label for="previewWidth">Width</label>
+                                        <input type="number" id="previewWidth" value="1280" min="320" max="4096" disabled />
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="previewHeight">Height</label>
+                                        <input type="number" id="previewHeight" value="720" min="240" max="2160" disabled />
+                                    </div>
+                                </div>
+                                <div class="form-group">
+                                    <label for="previewFPSOverride">Frame Rate (fps)</label>
+                                    <input type="number" id="previewFPSOverride" value="30" min="1" max="120" disabled />
+                                </div>
+                                <small style="color: var(--color-text-secondary);">Use at your own risk - unsupported combinations may not work</small>
+                            </div>
+
+                            <div class="form-actions">
+                                <button type="button" class="btn btn-secondary" id="cancelPreviewBtn">Cancel</button>
+                                <button type="submit" class="btn btn-primary">Start Preview</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(modal);
+
+            document.getElementById('closePreviewSettingsModal').addEventListener('click', () => this.closePreviewSettingsModal());
+            document.getElementById('cancelPreviewBtn').addEventListener('click', () => this.closePreviewSettingsModal());
+            document.getElementById('previewAdvanced').addEventListener('change', (e) => {
+                const advSettings = document.getElementById('previewAdvancedSettings');
+                const isAdvanced = e.target.checked;
+                advSettings.style.display = isAdvanced ? 'block' : 'none';
+                
+                // Disable/enable inputs to prevent validation errors on hidden fields
+                document.getElementById('previewWidth').disabled = !isAdvanced;
+                document.getElementById('previewHeight').disabled = !isAdvanced;
+                document.getElementById('previewFPSOverride').disabled = !isAdvanced;
+            });
+            modal.addEventListener('click', (e) => {
+                if (e.target === modal) this.closePreviewSettingsModal();
+            });
+            document.getElementById('usbcamPreviewSettingsForm').addEventListener('submit', (e) => {
+                e.preventDefault();
+                this.startPreviewWithSettings();
+            });
+        }
+
+        // Store camera ID
+        modal.dataset.cameraId = cameraId;
+
+        // Populate camera name
+        document.getElementById('previewModalName').value = cam.name || cam.id;
+
+        // Populate combo options
+        const comboSelect = document.getElementById('previewCombo');
+        comboSelect.innerHTML = combos.map((combo, idx) =>
+            `<option value="${idx}" ${combo.width === 1280 && combo.height === 720 && combo.fps === 30 ? 'selected' : ''}>${combo.label}</option>`
+        ).join('');
+
+        // Store combos for easy access
+        modal.dataset.combos = JSON.stringify(combos);
+
+        // Update advanced fields when combo changes
+        if (!comboSelect._listenerAttached) {
+            comboSelect.addEventListener('change', (e) => {
+                const combos = JSON.parse(modal.dataset.combos);
+                const combo = combos[parseInt(e.target.value)];
+                document.getElementById('previewWidth').value = combo.width;
+                document.getElementById('previewHeight').value = combo.height;
+                document.getElementById('previewFPSOverride').value = combo.fps;
+            });
+            comboSelect._listenerAttached = true;
+        }
+
+        // Show modal
+        modal.style.display = 'flex';
+    }
+
+    async startPreviewWithSettings() {
+        const modal = document.getElementById('usbcamPreviewSettingsModal');
+        if (!modal) return;
+
+        const cameraId = modal.dataset.cameraId;
+        if (!cameraId) return;
+
+        let width, height, fps;
+
+        // Get values from advanced override or preset combo
+        const useAdvanced = document.getElementById('previewAdvanced').checked;
+        if (useAdvanced) {
+            width = parseInt(document.getElementById('previewWidth').value);
+            height = parseInt(document.getElementById('previewHeight').value);
+            fps = parseInt(document.getElementById('previewFPSOverride').value);
+        } else {
+            const combos = JSON.parse(modal.dataset.combos);
+            const comboIdx = parseInt(document.getElementById('previewCombo').value);
+            const combo = combos[comboIdx];
+            width = combo.width;
+            height = combo.height;
+            fps = combo.fps;
+        }
+
+        const config = {
+            width: width,
+            height: height,
+            fps: fps,
+            bitrate: parseInt(document.getElementById('previewBitrate').value)
+        };
+
         try {
-            const data = await API.post(`/api/usbcams/${cameraId}/preview`);
+            const data = await API.post(`/api/usbcams/${cameraId}/preview`, config);
             this.previewMode = 'http-mjpeg';
             this.previewCameraId = cameraId;
+            this.previewConfig = config;
+            this.closePreviewSettingsModal();
             this.renderCameras();
             requestAnimationFrame(() => this.initHTTPMJPEGPreview(cameraId, data.preview_url));
         } catch (e) {
             console.error('Preview start error:', e);
             showNotification('Failed to start preview: ' + e.message, 'error');
         }
+    }
+
+    closePreviewSettingsModal() {
+        const modal = document.getElementById('usbcamPreviewSettingsModal');
+        if (modal) modal.style.display = 'none';
     }
 
     async stopPreview() {

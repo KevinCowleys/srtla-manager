@@ -517,7 +517,7 @@ func (h *FFmpegHandler) StartUSBCameraHTTPPreview(cameraID string, config USBCap
 		"-f", "v4l2",
 	}
 
-	// Set input format
+	// Set input format - MUST come before framerate and video_size
 	switch config.InputFormat {
 	case "h264":
 		args = append(args, "-input_format", "h264")
@@ -540,6 +540,9 @@ func (h *FFmpegHandler) StartUSBCameraHTTPPreview(cameraID string, config USBCap
 		"-f", "mpjpeg",
 		"pipe:1", // Output to stdout
 	)
+
+	// Log the full FFmpeg command for debugging
+	log.Printf("[FFmpeg Preview] Starting FFmpeg with command: ffmpeg %s", strings.Join(args, " "))
 
 	// Create a broadcaster to handle multiple HTTP connections
 	broadcaster := NewStreamBroadcaster()

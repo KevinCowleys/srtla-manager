@@ -291,29 +291,26 @@ func (h *Handler) HandleUSBCameraPreview(w http.ResponseWriter, r *http.Request)
 		_ = h.ffmpeg.StopPreview(cameraID)
 	}
 
-	// Parse request body to get desired format/resolution
+	// Parse request body to get desired resolution and bitrate
 	type PreviewRequest struct {
-		PixelFormat string `json:"pixel_format"`
-		Width       int    `json:"width"`
-		Height      int    `json:"height"`
-		FPS         int    `json:"fps"`
+		Width   int `json:"width"`
+		Height  int `json:"height"`
+		FPS     int `json:"fps"`
+		Bitrate int `json:"bitrate"` // kbps, optional
 	}
 	var req PreviewRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err == nil && req.Width > 0 && req.Height > 0 {
-		// User provided specific format/resolution - use it
-		// Just validate that it's in the available formats
+		// User provided specific resolution - validate it
 		foundFormat := false
 		for i := range camera.Formats {
 			if camera.Formats[i].Width == req.Width &&
-				camera.Formats[i].Height == req.Height &&
-				camera.Formats[i].PixelFormat == req.PixelFormat {
+				camera.Formats[i].Height == req.Height {
 				foundFormat = true
 				break
 			}
 		}
 		if !foundFormat {
-			// Format not found in enumeration - might be a hint (like 4K)
-			// Allow it anyway and let FFmpeg handle it
+			// Format not found - allow anyway and let FFmpeg handle it
 		}
 	}
 
@@ -323,15 +320,26 @@ func (h *Handler) HandleUSBCameraPreview(w http.ResponseWriter, r *http.Request)
 	inputFormat := "mjpeg"
 
 	if len(camera.Formats) > 0 {
-		// If user specified a format/resolution, try to find it
+		// If user specified a resolution, try to find it - PREFER MJPEG
 		var selectedFormat *usbcam.VideoFormat
-		if req.Width > 0 && req.Height > 0 && req.PixelFormat != "" {
+		if req.Width > 0 && req.Height > 0 {
+			// First pass: look for MJPEG at requested resolution
 			for i := range camera.Formats {
 				if camera.Formats[i].Width == req.Width &&
 					camera.Formats[i].Height == req.Height &&
-					camera.Formats[i].PixelFormat == req.PixelFormat {
+					camera.Formats[i].PixelFormat == "MJPG" {
 					selectedFormat = &camera.Formats[i]
 					break
+				}
+			}
+			// Second pass: accept any format at requested resolution
+			if selectedFormat == nil {
+				for i := range camera.Formats {
+					if camera.Formats[i].Width == req.Width &&
+						camera.Formats[i].Height == req.Height {
+						selectedFormat = &camera.Formats[i]
+						break
+					}
 				}
 			}
 		}
@@ -366,14 +374,24 @@ func (h *Handler) HandleUSBCameraPreview(w http.ResponseWriter, r *http.Request)
 		}
 	}
 
-	// Start HTTP preview streaming
+	// Start HTTP preview streaming with MJPEG (always use MJPEG for preview)
+	// Use provided settings or defaults
+	fps := req.FPS
+	if fps == 0 {
+		fps = 30
+	}
+	bitrate := req.Bitrate
+	if bitrate == 0 {
+		bitrate = 3000
+	}
+
 	port, err := h.ffmpeg.StartUSBCameraHTTPPreview(cameraID, process.USBCaptureConfig{
 		DevicePath:  camera.DevicePath,
 		Width:       width,
 		Height:      height,
-		FPS:         30,
-		Encoder:     "mjpeg",
-		Bitrate:     0,
+		FPS:         fps,
+		Encoder:     "mjpeg", // Force MJPEG for HTTP preview streaming
+		Bitrate:     bitrate,
 		InputFormat: inputFormat,
 		SRTPort:     0,
 		HLSDir:      "",
@@ -383,7 +401,7 @@ func (h *Handler) HandleUSBCameraPreview(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	h.logOutput("usbcam", fmt.Sprintf("[USBCam] HTTP preview started for camera %s on port %d", cameraID, port))
+	h.logOutput("usbcam", fmt.Sprintf("[USBCam] HTTP preview started for camera %s on port %d with MJPEG encoder at %d fps", cameraID, port, fps))
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]interface{}{
