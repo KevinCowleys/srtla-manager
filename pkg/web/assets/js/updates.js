@@ -94,7 +94,7 @@ export class UpdateManager {
     }
 
     renderReleases() {
-        const container = document.getElementById('releasesListContainer');
+        const container = document.getElementById('versionsList');
         if (!container) return;
 
         if (this.releases.length === 0) {
