@@ -115,7 +115,7 @@ func (h *FFmpegHandler) StartWithPreview(rtmpPort int, streamKey string, srtPort
 	if err := killProcessOnPort(rtmpPort); err != nil {
 		log.Printf("[WARN] Failed to cleanup port %d: %v", rtmpPort, err)
 	}
-	
+
 	h.mu.Lock()
 	h.stats = FFmpegStats{State: FFmpegWaiting}
 	if srtPort > 0 {
