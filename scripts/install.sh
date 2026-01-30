@@ -5,7 +5,7 @@
 set -e
 
 # Configuration
-REPO="kevincoakley/srtla-manager"
+REPO="KevinCowleys/srtla-manager"
 INSTALL_DIR="/opt/srtla-manager"
 BINARY_NAME="srtla-manager"
 SERVICE_NAME="srtla-manager"
