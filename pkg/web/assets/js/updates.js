@@ -40,17 +40,23 @@ export class UpdateManager {
         }
     }
 
-    async downloadUpdate(version) {
+    async performUpdate(version) {
+        if (!confirm(`Update to ${version}? The service will restart automatically.`)) {
+            return;
+        }
+
         try {
-            const response = await API.post('/api/updates/download', { version });
-            if (response.download_url) {
-                // Open download URL in a new tab
-                window.open(response.download_url, '_blank');
-                showNotification('Download Started', `Downloading ${version}...`, 'success');
-            }
+            showNotification('Update Started', `Updating to ${version}... The service will restart.`, 'info');
+            const response = await API.post('/api/updates/perform', { version });
+            showNotification('Update Complete', response.message || 'Update completed successfully. Service is restarting...', 'success');
+            
+            // Reload page after a delay to allow service to restart
+            setTimeout(() => {
+                window.location.reload();
+            }, 5000);
         } catch (error) {
-            console.error('Failed to initiate download:', error);
-            showNotification('Download Failed', error.message, 'error');
+            console.error('Failed to perform update:', error);
+            showNotification('Update Failed', error.message, 'error');
         }
     }
 
@@ -77,7 +83,7 @@ export class UpdateManager {
             statusHtml += `
                 <div class="update-available">
                     <p class="update-message">🎉 A new version is available!</p>
-                    <button class="btn btn-primary" onclick="window.updateManager.downloadUpdate('${latest_version}')">Download Update</button>
+                    <button class="btn btn-primary" onclick="window.updateManager.performUpdate('${latest_version}')">Update Now</button>
                     <a href="${release_url}" target="_blank" class="btn btn-secondary">View Release</a>
                 </div>
                 <div class="release-notes">
@@ -121,7 +127,7 @@ export class UpdateManager {
                     </div>
                     <p class="release-name">${this.escapeHtml(release.name || release.tag_name)}</p>
                     <div class="release-actions">
-                        <button class="btn btn-small" onclick="window.updateManager.downloadUpdate('${release.tag_name}')">Download</button>
+                        <button class="btn btn-small" onclick="window.updateManager.performUpdate('${release.tag_name}')">Update to This</button>
                         <a href="${release.html_url}" target="_blank" class="btn btn-small btn-secondary">Details</a>
                     </div>
                 </div>
