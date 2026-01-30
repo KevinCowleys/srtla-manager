@@ -175,12 +175,17 @@ download_binary() {
     # Verify checksum if available
     if [ -n "$TEMP_CHECKSUM" ] && [ -f "$TEMP_CHECKSUM" ]; then
         log_info "Verifying checksum..."
-        cd "$TEMP_DIR" || exit 1
-        sha256sum -c "$TEMP_CHECKSUM" > /dev/null 2>&1 || {
+        # Extract hash from file (format: "hash filename" or "hash  filename")
+        EXPECTED_HASH=$(cut -d' ' -f1 "$TEMP_CHECKSUM")
+        ACTUAL_HASH=$(sha256sum "$TEMP_BINARY" | cut -d' ' -f1)
+        
+        if [ "$EXPECTED_HASH" != "$ACTUAL_HASH" ]; then
             log_error "Checksum verification failed - binary may be corrupted"
+            log_error "Expected: $EXPECTED_HASH"
+            log_error "Got:      $ACTUAL_HASH"
             exit 1
-        }
-        cd - > /dev/null || exit 1
+        fi
+        log_info "Checksum verified successfully"
     fi
     
     chmod +x "$TEMP_BINARY"
