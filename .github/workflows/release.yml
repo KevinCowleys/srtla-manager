@@ -1,0 +1,79 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build and Release
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.25.6'
+
+      - name: Get version from tag
+        id: tag
+        run: echo "version=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+
+      - name: Build binaries
+        run: |
+          mkdir -p dist
+          
+          GIT_COMMIT=$(git rev-parse HEAD)
+          GIT_BRANCH=$(git rev-parse --abbrev-ref HEAD)
+          BUILD_TIME=$(date -u '+%Y-%m-%d_%H:%M:%S')
+          VERSION=${{ steps.tag.outputs.version }}
+          
+          # Build for Linux platforms only
+          for ARCH in amd64 arm64 armv7; do
+            if [ "$ARCH" = "armv7" ]; then
+              GOARCH="arm"
+              GOARM="7"
+              OUTPUT_NAME="srtla-manager-linux-armv7"
+            else
+              GOARCH="$ARCH"
+              GOARM=""
+              OUTPUT_NAME="srtla-manager-linux-$ARCH"
+            fi
+            
+            echo "Building for linux/$ARCH..."
+            
+            env GOOS=linux GOARCH=$GOARCH GOARM=$GOARM \
+              go build \
+                -ldflags "-X 'srtla-manager/internal/version.Version=${VERSION}' \
+                          -X 'srtla-manager/internal/version.Commit=${GIT_COMMIT}' \
+                          -X 'srtla-manager/internal/version.Branch=${GIT_BRANCH}' \
+                          -X 'srtla-manager/internal/version.BuildTime=${BUILD_TIME}' \
+                          -X 'srtla-manager/internal/version.Builder=github-actions'" \
+                -o "dist/${OUTPUT_NAME}" \
+                ./cmd/srtla-manager
+            
+            # Create checksum
+            cd dist
+            sha256sum "${OUTPUT_NAME}" > "${OUTPUT_NAME}.sha256"
+            cd ..
+          done
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          name: Release ${{ steps.tag.outputs.version }}
+          draft: false
+          prerelease: false
+          files: |
+            dist/srtla-manager-*
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
