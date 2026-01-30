@@ -200,6 +200,11 @@ create_user_and_dirs() {
         useradd -r -s /bin/false -d "$INSTALL_DIR" "$SERVICE_USER" || true
     fi
     
+    # Add user to necessary groups for hardware access
+    log_info "Setting up user groups for hardware access..."
+    usermod -a -G video "$SERVICE_USER" || log_warn "Failed to add $SERVICE_USER to video group"
+    usermod -a -G dialout "$SERVICE_USER" || log_warn "Failed to add $SERVICE_USER to dialout group"
+    
     # Create directories
     mkdir -p "$INSTALL_DIR"
     mkdir -p "$CONFIG_DIR"
