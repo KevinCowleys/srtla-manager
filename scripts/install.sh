@@ -271,12 +271,26 @@ download_binary() {
     if systemctl is-active --quiet "$SERVICE_NAME" 2>/dev/null; then
         log_info "Stopping existing service before replacing binary..."
         systemctl stop "$SERVICE_NAME" || log_warn "Failed to stop service"
-        sleep 1
+    fi
+    
+    # Kill any remaining processes using the binary
+    if pgrep -x "$BINARY_NAME" > /dev/null; then
+        log_info "Waiting for processes to terminate..."
+        pkill -TERM "$BINARY_NAME"
+        sleep 3
+        
+        # Force kill if still running
+        if pgrep -x "$BINARY_NAME" > /dev/null; then
+            log_warn "Force killing remaining processes..."
+            pkill -KILL "$BINARY_NAME"
+            sleep 1
+        fi
     fi
     
     # Move to install directory
     cp "$TEMP_BINARY" "$INSTALL_DIR/$BINARY_NAME" || {
         log_error "Failed to copy binary to install directory"
+        log_error "The binary may still be in use. Try: systemctl stop $SERVICE_NAME"
         exit 1
     }
     chown "$SERVICE_USER:$SERVICE_GROUP" "$INSTALL_DIR/$BINARY_NAME"
