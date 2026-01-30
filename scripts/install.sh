@@ -120,6 +120,77 @@ check_requirements() {
     fi
 }
 
+install_dependencies() {
+    log_info "Installing dependencies..."
+    
+    # Detect package manager
+    if command -v apt-get &> /dev/null; then
+        PKG_MANAGER="apt"
+        log_info "Detected package manager: apt"
+        apt-get update || log_warn "Failed to update package lists"
+        apt-get install -y ffmpeg v4l-utils network-manager android-tools-adb || {
+            log_warn "Some packages may have failed to install, continuing..."
+        }
+    elif command -v dnf &> /dev/null; then
+        PKG_MANAGER="dnf"
+        log_info "Detected package manager: dnf"
+        dnf install -y ffmpeg v4l-utils NetworkManager android-tools || {
+            log_warn "Some packages may have failed to install, continuing..."
+        }
+    elif command -v yum &> /dev/null; then
+        PKG_MANAGER="yum"
+        log_info "Detected package manager: yum"
+        yum install -y ffmpeg v4l-utils NetworkManager android-tools || {
+            log_warn "Some packages may have failed to install, continuing..."
+        }
+    elif command -v pacman &> /dev/null; then
+        PKG_MANAGER="pacman"
+        log_info "Detected package manager: pacman"
+        pacman -Sy --noconfirm ffmpeg v4l-utils networkmanager android-tools || {
+            log_warn "Some packages may have failed to install, continuing..."
+        }
+    elif command -v zypper &> /dev/null; then
+        PKG_MANAGER="zypper"
+        log_info "Detected package manager: zypper"
+        zypper install -y ffmpeg v4l-utils NetworkManager android-tools || {
+            log_warn "Some packages may have failed to install, continuing..."
+        }
+    else
+        log_warn "Could not detect package manager. Please install dependencies manually:"
+        log_warn "  - ffmpeg"
+        log_warn "  - v4l-utils (v4l2-ctl)"
+        log_warn "  - NetworkManager (nmcli)"
+        log_warn "  - android-tools (adb)"
+        return
+    fi
+    
+    # Verify critical dependencies
+    log_info "Verifying installed dependencies..."
+    if ! command -v ffmpeg &> /dev/null; then
+        log_warn "ffmpeg not found in PATH after installation"
+    else
+        log_info "✓ ffmpeg: $(ffmpeg -version 2>&1 | head -1 | cut -d' ' -f3)"
+    fi
+    
+    if ! command -v v4l2-ctl &> /dev/null; then
+        log_warn "v4l2-ctl not found (USB camera support may be limited)"
+    else
+        log_info "✓ v4l2-ctl: installed"
+    fi
+    
+    if ! command -v nmcli &> /dev/null; then
+        log_warn "nmcli not found (WiFi management will not work)"
+    else
+        log_info "✓ nmcli: $(nmcli --version 2>&1 | head -1)"
+    fi
+    
+    if ! command -v adb &> /dev/null; then
+        log_warn "adb not found (modem/Android device support will not work)"
+    else
+        log_info "✓ adb: $(adb version 2>&1 | head -1)"
+    fi
+}
+
 create_user_and_dirs() {
     log_info "Setting up user and directories..."
     
@@ -335,6 +406,7 @@ main() {
     log_info "Repository: $REPO"
     
     check_requirements
+    install_dependencies
     detect_os
     get_latest_version
     find_download_url
