@@ -34,13 +34,7 @@ This project follows the [Standard Go Project Layout](https://github.com/golang-
 Build the project from the repository root:
 
 ```bash
-go build -o bin/srtla-manager ./cmd/srtla-manager
-```
-
-Or use a specific output location:
-
-```bash
-go build -o /usr/local/bin/srtla-manager ./cmd/srtla-manager
+make clean && make build && make run
 ```
 
 ## Running

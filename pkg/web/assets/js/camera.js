@@ -91,12 +91,10 @@ export class CameraManager {
         if (!cameras || cameras.length === 0) {
             container.innerHTML = '<p class="no-cameras">No cameras discovered. Click "Start Scanning" to begin.</p>';
             this.cameras = [];
-            this.updatePreviewPlayer();
             return;
         }
 
         this.cameras = cameras;
-        this.updatePreviewPlayer();
 
         container.innerHTML = cameras.map(camera => {
             const hasSavedConfig = !!camera.saved_config;
@@ -173,64 +171,8 @@ export class CameraManager {
         `}).join('');
     }
 
-    updatePreviewPlayer() {
-        const videoEl = document.getElementById('cameraPreview');
-        const statusEl = document.getElementById('cameraPreviewStatus');
-        if (!videoEl || !statusEl) return;
 
-        const streamingCam = this.cameras.find(c => (c.state || '').toLowerCase() === 'streaming');
-        if (!streamingCam) {
-            statusEl.textContent = 'No camera streaming';
-            this.teardownPreview(videoEl);
-            return;
-        }
 
-        statusEl.textContent = `Previewing ${streamingCam.name || streamingCam.id}`;
-        const src = '/preview-temp/playlist.m3u8';
-
-        if (window.Hls && window.Hls.isSupported()) {
-            if (!this.previewPlayer) {
-                this.previewPlayer = new Hls({
-                    maxLiveSyncDuration: 3,
-                    liveSyncDurationCount: 2,
-                    liveBackBufferLength: 5,
-                    maxBufferLength: 30,
-                    maxMaxBufferLength: 60,
-                    maxBufferSize: 60 * 1000 * 1000,
-                    progressive: false,
-                    lowLatencyMode: false
-                });
-                this.previewPlayer.on(Hls.Events.ERROR, (event, data) => {
-                    console.warn('HLS error', data);
-                    if (data.fatal) {
-                        console.error('Fatal HLS error:', data);
-                    }
-                });
-            }
-            this.previewPlayer.loadSource(src);
-            this.previewPlayer.attachMedia(videoEl);
-        } else {
-            // Native HLS (Safari)
-            videoEl.src = src;
-        }
-
-        const play = videoEl.play();
-        if (play && play.catch) {
-            play.catch(() => {});
-        }
-    }
-
-    teardownPreview(videoEl) {
-        if (this.previewPlayer) {
-            this.previewPlayer.destroy();
-            this.previewPlayer = null;
-        }
-        if (videoEl) {
-            videoEl.pause();
-            videoEl.removeAttribute('src');
-            videoEl.load();
-        }
-    }
 
     async connect(cameraId) {
         try {
