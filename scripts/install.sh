@@ -267,6 +267,13 @@ download_binary() {
         log_warn "Could not verify binary version flag"
     fi
     
+    # Stop service if it's running before replacing binary
+    if systemctl is-active --quiet "$SERVICE_NAME" 2>/dev/null; then
+        log_info "Stopping existing service before replacing binary..."
+        systemctl stop "$SERVICE_NAME" || log_warn "Failed to stop service"
+        sleep 1
+    fi
+    
     # Move to install directory
     cp "$TEMP_BINARY" "$INSTALL_DIR/$BINARY_NAME" || {
         log_error "Failed to copy binary to install directory"
