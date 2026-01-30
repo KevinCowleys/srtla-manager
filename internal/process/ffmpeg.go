@@ -14,6 +14,16 @@ import (
 	"time"
 )
 
+// killProcessOnPort kills any process listening on the given port
+func killProcessOnPort(port int) error {
+	cmd := exec.Command("sh", "-c", fmt.Sprintf("lsof -ti :%d | xargs -r kill -9", port))
+	if err := cmd.Run(); err != nil {
+		// Ignore errors - port might not be in use
+		return nil
+	}
+	return nil
+}
+
 type FFmpegState string
 
 const (
@@ -101,6 +111,11 @@ func (h *FFmpegHandler) StartWithBindAddress(rtmpPort int, streamKey string, srt
 
 // StartWithPreview behaves like StartWithBindAddress but also tees to an HLS output when hlsDir is provided.
 func (h *FFmpegHandler) StartWithPreview(rtmpPort int, streamKey string, srtPort int, bindAddr string, hlsDir string) error {
+	// Kill any zombie processes on the RTMP port before starting
+	if err := killProcessOnPort(rtmpPort); err != nil {
+		log.Printf("[WARN] Failed to cleanup port %d: %v", rtmpPort, err)
+	}
+	
 	h.mu.Lock()
 	h.stats = FFmpegStats{State: FFmpegWaiting}
 	if srtPort > 0 {
