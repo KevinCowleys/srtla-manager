@@ -15,6 +15,7 @@ import (
 
 	"srtla-manager/internal/api"
 	"srtla-manager/internal/config"
+	"srtla-manager/internal/logger"
 	"srtla-manager/internal/modem"
 	"srtla-manager/internal/process"
 	"srtla-manager/internal/stats"
@@ -34,7 +35,18 @@ func main() {
 	}
 
 	cfg := cfgManager.Get()
-	log.Printf("Starting srtla-manager on port %d", cfg.Web.Port)
+
+	// Initialize logger with config settings
+	if err := logger.Init(cfg.Logging.FilePath, cfg.Logging.MaxSizeMB, cfg.Logging.MaxBackups, cfg.Logging.Debug); err != nil {
+		log.Printf("[WARN] Failed to initialize file logging: %v (continuing with stdout only)", err)
+		// Initialize with stdout-only logging as fallback
+		if err := logger.Init("", 0, 0, cfg.Logging.Debug); err != nil {
+			log.Fatalf("Failed to initialize logger: %v", err)
+		}
+	}
+	defer logger.Get().Close()
+
+	logger.Printf("Starting srtla-manager on port %d", cfg.Web.Port)
 
 	statsCollector := stats.NewCollector()
 	logBuffer := stats.NewLogBuffer(1000)
@@ -44,7 +56,7 @@ func main() {
 	modemManager := modem.NewManager()
 	usbnetSvc, err := usbnet.Start(context.Background(), usbnet.WithPersistPath("/var/lib/srtla-manager/device_mappings.json"))
 	if err != nil {
-		log.Printf("Failed to start usbnet reconciler: %v", err)
+		logger.Warn("Failed to start usbnet reconciler: %v", err)
 	}
 
 	wifiManager := wifi.NewManager(log.New(os.Stderr, "[WIFI] ", log.LstdFlags))
@@ -57,6 +69,8 @@ func main() {
 			"source": log.Source,
 			"line":   log.Line,
 		})
+		// Also write to the logger file
+		logger.Printf("[%s] %s", log.Source, log.Line)
 	}
 	ffmpegHandler.SetLogCallback(logCallback)
 	srtlaHandler.SetLogCallback(logCallback)
@@ -66,7 +80,7 @@ func main() {
 
 	// Auto-start FFmpeg in receive-only mode so cameras can connect immediately
 	if err := handler.StartReceiveMode(); err != nil {
-		log.Printf("[WARNING] Failed to auto-start FFmpeg in receive mode: %v", err)
+		logger.Warn("Failed to auto-start FFmpeg in receive mode: %v", err)
 	}
 
 	// Watch for DJI device state changes
@@ -175,6 +189,8 @@ func main() {
 	mux.HandleFunc("/api/wifi/hotspot/stop", handler.HandleWiFi)
 	mux.HandleFunc("/api/wifi/forget", handler.HandleWiFi)
 	mux.HandleFunc("/api/logs", handler.HandleLogs)
+	mux.HandleFunc("/api/logs/download", handler.HandleLogsDownload)
+	mux.HandleFunc("/api/debug", handler.HandleDebugMode)
 
 	// Update endpoints
 	mux.HandleFunc("/api/updates/check", handler.HandleCheckUpdates)
@@ -243,17 +259,17 @@ func main() {
 
 	go func() {
 		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			log.Fatalf("Server failed: %v", err)
+			logger.Fatal("Server failed: %v", err)
 		}
 	}()
 
-	log.Printf("Server started at http://localhost:%d", cfg.Web.Port)
+	logger.Printf("Server started at http://localhost:%d", cfg.Web.Port)
 
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit
 
-	log.Println("Shutting down...")
+	logger.Println("Shutting down...")
 
 	if usbnetSvc != nil {
 		_ = usbnetSvc.Stop()
@@ -265,8 +281,8 @@ func main() {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	if err := server.Shutdown(ctx); err != nil {
-		log.Fatalf("Server shutdown failed: %v", err)
+		logger.Error("Server shutdown error: %v", err)
 	}
 
-	log.Println("Server stopped")
+	logger.Println("Server stopped")
 }

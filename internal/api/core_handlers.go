@@ -3,8 +3,11 @@ package api
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
+	"os"
 
+	"srtla-manager/internal/logger"
 	"srtla-manager/internal/system"
 )
 
@@ -145,6 +148,77 @@ func (h *Handler) HandleLogs(w http.ResponseWriter, r *http.Request) {
 	logs := h.logs.GetRecent(1000)
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(logs)
+}
+
+func (h *Handler) HandleLogsDownload(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	// Get the log file path from the logger
+	logFilePath := logger.Get().GetFilePath()
+	if logFilePath == "" {
+		http.Error(w, "File logging is not enabled", http.StatusNotFound)
+		return
+	}
+
+	// Open the log file
+	file, err := os.Open(logFilePath)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Failed to open log file: %v", err), http.StatusInternalServerError)
+		return
+	}
+	defer file.Close()
+
+	// Get file info for size
+	fileInfo, err := file.Stat()
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Failed to stat log file: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	// Set headers for download
+	w.Header().Set("Content-Type", "text/plain")
+	w.Header().Set("Content-Disposition", "attachment; filename=\"srtla-manager.log\"")
+	w.Header().Set("Content-Length", fmt.Sprintf("%d", fileInfo.Size()))
+
+	// Stream the file to the response
+	if _, err := io.Copy(w, file); err != nil {
+		logger.Error("Failed to stream log file: %v", err)
+	}
+}
+
+func (h *Handler) HandleDebugMode(w http.ResponseWriter, r *http.Request) {
+	switch r.Method {
+	case http.MethodGet:
+		// Get current debug mode status
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]bool{
+			"debug": logger.IsDebug(),
+		})
+
+	case http.MethodPost:
+		// Set debug mode
+		var req struct {
+			Debug bool `json:"debug"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			http.Error(w, fmt.Sprintf("Invalid JSON: %v", err), http.StatusBadRequest)
+			return
+		}
+
+		logger.SetDebug(req.Debug)
+
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"debug":  req.Debug,
+			"status": "updated",
+		})
+
+	default:
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+	}
 }
 
 func (h *Handler) HandleWebSocket(w http.ResponseWriter, r *http.Request) {

@@ -235,8 +235,38 @@ class SRTLAManager {
                 this.logs = logs;
                 this.renderLogs();
             }
+            
+            // Load debug mode status
+            const debugStatus = await API.get('/api/debug');
+            const debugToggle = document.getElementById('debugModeToggle');
+            if (debugToggle && debugStatus) {
+                debugToggle.checked = debugStatus.debug || false;
+            }
         } catch (e) {
             console.error('Failed to load logs:', e);
+        }
+    }
+
+    async downloadLogs() {
+        try {
+            window.location.href = '/api/logs/download';
+            showNotification('Downloading logs...', 'success');
+        } catch (e) {
+            showNotification(`Failed to download logs: ${e.message}`, 'error');
+        }
+    }
+
+    async toggleDebugMode(enabled) {
+        try {
+            await API.post('/api/debug', { debug: enabled });
+            showNotification(`Debug mode ${enabled ? 'enabled' : 'disabled'}`, 'success');
+        } catch (e) {
+            showNotification(`Failed to toggle debug mode: ${e.message}`, 'error');
+            // Revert toggle on error
+            const debugToggle = document.getElementById('debugModeToggle');
+            if (debugToggle) {
+                debugToggle.checked = !enabled;
+            }
         }
     }
 
@@ -365,6 +395,7 @@ class SRTLAManager {
             stopBtn: () => this.stopStream(),
             saveConfigBtn: () => this.saveConfig(),
             clearLogsBtn: () => { this.logs = []; this.renderLogs(); },
+            downloadLogsBtn: () => this.downloadLogs(),
             rtmpPort: () => this.updateRTMPUrl(),
             streamKey: () => this.updateRTMPUrl(),
             filterFfmpeg: () => this.renderLogs(),
@@ -395,6 +426,14 @@ class SRTLAManager {
             const el = document.getElementById(id);
             if (el) el.addEventListener('input', () => this.updateRTMPUrl());
         });
+
+        // Debug mode toggle
+        const debugToggle = document.getElementById('debugModeToggle');
+        if (debugToggle) {
+            debugToggle.addEventListener('change', (e) => {
+                this.toggleDebugMode(e.target.checked);
+            });
+        }
 
         // Delegate camera button clicks
         document.addEventListener('click', (e) => {

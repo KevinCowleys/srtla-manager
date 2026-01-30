@@ -15,3 +15,8 @@ srtla:
     exploration: false
 web:
     port: 8080
+logging:
+    debug: false
+    file_path: logs/srtla-manager.log
+    max_size_mb: 10
+    max_backups: 3

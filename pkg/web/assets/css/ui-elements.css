@@ -368,6 +368,23 @@ input[type="password"].revealed {
     letter-spacing: 0.05em;
     display: flex;
     align-items: center;
+    gap: 10px;
+}
+
+.debug-toggle {
+    margin-left: auto;
+    text-transform: none;
+    font-size: 0.8rem;
+    color: var(--text-primary);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+    font-weight: 400;
+}
+
+.debug-toggle input[type="checkbox"] {
+    cursor: pointer;
 }
 
 .log-filters {

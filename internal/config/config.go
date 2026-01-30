@@ -17,6 +17,7 @@ type Config struct {
 	SRT        SRTConfig                  `yaml:"srt" json:"srt"`
 	SRTLA      SRTLAConfig                `yaml:"srtla" json:"srtla"`
 	Web        WebConfig                  `yaml:"web" json:"web"`
+	Logging    LoggingConfig              `yaml:"logging" json:"logging"`
 	Cameras    map[string]CameraConfig    `yaml:"cameras" json:"cameras"`
 	USBCameras map[string]USBCameraConfig `yaml:"usb_cameras" json:"usb_cameras"`
 }
@@ -44,6 +45,13 @@ type SRTLAConfig struct {
 
 type WebConfig struct {
 	Port int `yaml:"port" json:"port"`
+}
+
+type LoggingConfig struct {
+	Debug      bool   `yaml:"debug" json:"debug"`
+	FilePath   string `yaml:"file_path" json:"file_path"`
+	MaxSizeMB  int    `yaml:"max_size_mb" json:"max_size_mb"`
+	MaxBackups int    `yaml:"max_backups" json:"max_backups"`
 }
 
 type CameraConfig struct {
@@ -396,6 +404,12 @@ func DefaultConfig() *Config {
 		},
 		Web: WebConfig{
 			Port: 8080,
+		},
+		Logging: LoggingConfig{
+			Debug:      false,
+			FilePath:   "logs/srtla-manager.log",
+			MaxSizeMB:  10,
+			MaxBackups: 3,
 		},
 		Cameras:    make(map[string]CameraConfig),
 		USBCameras: make(map[string]USBCameraConfig),
