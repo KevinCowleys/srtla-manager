@@ -1,0 +1,17 @@
+rtmp:
+    listen_port: 1935
+    stream_key: live
+srt:
+    local_port: 6000
+srtla:
+    enabled: true
+    binary_path: srtla_send
+    remote_host: localhost
+    remote_port: 5000
+    bind_ips: []
+    bind_ips_file: ""
+    classic: false
+    no_quality: false
+    exploration: false
+web:
+    port: 8080

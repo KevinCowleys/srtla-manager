@@ -1,0 +1,50 @@
+# Binaries
+bin/
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Test binary, built with `go test -c`
+*.test
+
+# Output of the go coverage tool
+*.out
+
+# Dependency directories
+vendor/
+
+# Go workspace file
+go.work
+
+# Build artifacts
+srtla-manager
+!cmd/srtla-manager/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Application specific
+srtla-preview-temp/
+/var/lib/srtla-manager/
+
+# Web build artifacts
+pkg/web/assets/*.bundle.js
+pkg/web/assets/*.bundle.css
+pkg/web/assets/*.min.js
+pkg/web/assets/*.min.css
+pkg/web/assets/*.min.js.map
+
+# Node.js (for optional advanced builds)
+pkg/web/node_modules/
+pkg/web/package-lock.json
+pkg/web/.npmrc

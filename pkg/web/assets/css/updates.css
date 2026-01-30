@@ -1,0 +1,221 @@
+/* Update Management Styles */
+
+.update-container {
+    display: flex;
+    flex-direction: column;
+    gap: 2rem;
+}
+
+.update-status-card {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border-radius: 12px;
+    padding: 2rem;
+    color: white;
+    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.2);
+}
+
+.update-info {
+    margin-bottom: 1.5rem;
+}
+
+.update-info p {
+    margin: 0.5rem 0;
+    font-size: 0.95rem;
+    line-height: 1.6;
+}
+
+.update-info strong {
+    font-weight: 600;
+}
+
+.update-available {
+    background: rgba(255, 255, 255, 0.15);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    border-radius: 8px;
+    padding: 1.5rem;
+    margin: 1rem 0;
+    backdrop-filter: blur(10px);
+}
+
+.update-message {
+    font-size: 1.1rem;
+    font-weight: 600;
+    margin: 0 0 1rem 0;
+    color: #fff;
+}
+
+.update-current {
+    font-size: 1.05rem;
+    font-weight: 500;
+    margin: 0;
+    color: #e0e7ff;
+}
+
+.release-notes {
+    background: rgba(0, 0, 0, 0.1);
+    border-radius: 8px;
+    padding: 1rem;
+    margin-top: 1rem;
+}
+
+.release-notes h4 {
+    margin: 0 0 0.75rem 0;
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: #e0e7ff;
+}
+
+.notes-content {
+    font-size: 0.85rem;
+    line-height: 1.6;
+    max-height: 300px;
+    overflow-y: auto;
+    color: rgba(255, 255, 255, 0.9);
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+
+.releases-section {
+    padding: 1rem 0;
+}
+
+.releases-section h3 {
+    margin: 0 0 1rem 0;
+    font-size: 1.1rem;
+    color: #333;
+}
+
+.releases-section .btn-small {
+    margin-bottom: 1rem;
+}
+
+.releases-container {
+    max-height: 600px;
+    overflow-y: auto;
+}
+
+.releases-list {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.release-item {
+    background: #f8f9fa;
+    border: 1px solid #e9ecef;
+    border-radius: 8px;
+    padding: 1.25rem;
+    transition: all 0.2s ease;
+}
+
+.release-item:hover {
+    background: #fff;
+    border-color: #667eea;
+    box-shadow: 0 2px 8px rgba(102, 126, 234, 0.1);
+}
+
+.release-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-bottom: 0.75rem;
+}
+
+.release-header h3 {
+    margin: 0;
+    font-size: 1rem;
+    color: #2c3e50;
+    font-weight: 600;
+    font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+}
+
+.release-date {
+    font-size: 0.85rem;
+    color: #7f8c8d;
+    white-space: nowrap;
+}
+
+.release-badges {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 0.75rem;
+}
+
+.badge-prerelease,
+.badge-draft {
+    display: inline-block;
+    padding: 0.25rem 0.75rem;
+    border-radius: 12px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.badge-prerelease {
+    background: #fff3cd;
+    color: #856404;
+}
+
+.badge-draft {
+    background: #e2e3e5;
+    color: #383d41;
+}
+
+.release-name {
+    margin: 0.5rem 0 1rem 0;
+    font-size: 0.95rem;
+    color: #555;
+    line-height: 1.4;
+}
+
+.release-actions {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.release-actions .btn {
+    flex: 1;
+}
+
+.no-releases {
+    text-align: center;
+    padding: 2rem;
+    color: #999;
+    font-style: italic;
+}
+
+.loading {
+    text-align: center;
+    color: #999;
+    padding: 1rem;
+    font-style: italic;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .update-container {
+        gap: 1.5rem;
+    }
+
+    .update-status-card {
+        padding: 1.5rem;
+    }
+
+    .release-header {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .release-date {
+        margin-top: 0.5rem;
+    }
+
+    .release-actions {
+        flex-wrap: wrap;
+    }
+
+    .release-actions .btn {
+        min-width: 100px;
+    }
+}

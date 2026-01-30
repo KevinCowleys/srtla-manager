@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SRTLA Manager</title>
+    <link rel="stylesheet" href="css/base.css">
+    <link rel="stylesheet" href="css/layout.css">
+    <link rel="stylesheet" href="css/ui-elements.css">
+    <link rel="stylesheet" href="css/dependencies.css">
+    <link rel="stylesheet" href="css/network.css">
+    <link rel="stylesheet" href="css/modem-usb.css">
+    <link rel="stylesheet" href="css/wifi.css">
+    <link rel="stylesheet" href="css/camera.css">
+    <link rel="stylesheet" href="css/usbcam.css">
+    <link rel="stylesheet" href="css/modals.css">
+    <link rel="stylesheet" href="css/animations.css">
+    <link rel="stylesheet" href="css/updates.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.17/dist/hls.min.js"></script>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>SRTLA Manager</h1>
+            <div class="connection-status" id="wsStatus">Disconnected</div>
+        </header>
+
+        <nav class="tabs">
+            <a class="tab-button active" href="#dashboard">Dashboard</a>
+            <a class="tab-button" href="#cameras">Cameras</a>
+            <a class="tab-button" href="#network">Network</a>
+            <a class="tab-button" href="#settings">Settings</a>
+            <a class="tab-button" href="#advanced">Advanced</a>
+        </nav>
+
+        <!-- DASHBOARD TAB -->
+        <div class="tab-content active" id="dashboard">
+            <section class="dependencies-section" id="depsSection">
+                <div class="dep-card" id="ffmpegDep">
+                    <span class="dep-icon">?</span>
+                    <div class="dep-info">
+                        <span class="dep-name">FFmpeg</span>
+                        <span class="dep-status">Checking...</span>
+                    </div>
+                    <div class="install-help" id="ffmpegInstall" hidden>
+                        <code id="ffmpegCmd"></code>
+                        <button class="btn-copy" onclick="copyCommand('ffmpegCmd')">Copy</button>
+                    </div>
+                </div>
+                <div class="dep-card" id="srtlaDep">
+                    <span class="dep-icon">?</span>
+                    <div class="dep-info">
+                        <span class="dep-name">srtla_send</span>
+                        <span class="dep-status">Checking...</span>
+                    </div>
+                    <div class="install-help" id="srtlaInstall" hidden>
+                        <pre id="srtlaCmd"></pre>
+                        <button class="btn-copy" onclick="copyCommand('srtlaCmd')">Copy</button>
+                    </div>
+                </div>
+            </section>
+
+            <section class="status-cards">
+                <div class="card" id="ffmpegCard">
+                    <h2>FFmpeg</h2>
+                    <div class="status-indicator" id="ffmpegStatus">Stopped</div>
+                    <div class="stats">
+                        <div class="stat">
+                            <span class="label">Bitrate</span>
+                            <span class="value" id="ffmpegBitrate">0 kbps</span>
+                        </div>
+                        <div class="stat">
+                            <span class="label">FPS</span>
+                            <span class="value" id="ffmpegFps">0</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card" id="srtlaCard">
+                    <h2>SRTLA</h2>
+                    <div class="status-indicator" id="srtlaStatus">Stopped</div>
+                    <div class="stats">
+                        <div class="stat">
+                            <span class="label">Total Bitrate</span>
+                            <span class="value" id="srtlaBitrate">0 Mbps</span>
+                        </div>
+                        <div class="stat">
+                            <span class="label">Connections</span>
+                            <span class="value" id="srtlaConnections">0</span>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <section class="controls">
+                <span class="pipeline-mode" id="pipelineMode">Idle</span>
+                <button id="startBtn" class="btn btn-start">Start Stream</button>
+                <button id="stopBtn" class="btn btn-stop" disabled>Stop Stream</button>
+            </section>
+
+            <section class="chart-section">
+                <h2>Bitrate History</h2>
+                <canvas id="bitrateChart"></canvas>
+            </section>
+
+            <section class="preview-section">
+                <h2>Camera Preview</h2>
+                <div class="preview-card">
+                    <video id="cameraPreview" controls muted playsinline preload="none"></video>
+                    <div id="cameraPreviewStatus" class="preview-status">No camera streaming</div>
+                </div>
+            </section>
+        </div>
+
+        <!-- NETWORK TAB -->
+        <div class="tab-content" id="network">
+            <section class="usbnet-section" id="usbnetSection">
+                <h2>
+                    USB Network Interfaces
+                    <button id="refreshUSBNet" class="btn-small">Refresh</button>
+                </h2>
+                <div class="usbnet-grid" id="usbnetGrid">
+                    <div class="usbnet-loading">Scanning USB devices...</div>
+                </div>
+            </section>
+
+            <section class="wifi-section">
+                <h2>WiFi Management</h2>
+                <div class="wifi-container">
+                    <div class="wifi-status-card">
+                        <h3>Current Connection</h3>
+                        <div id="wifiStatusContent">
+                            <p class="loading">Loading WiFi status...</p>
+                        </div>
+                    </div>
+
+                    <div class="wifi-networks-card">
+                        <h3>Available Networks</h3>
+                        <button id="refreshWiFiNetworks" class="btn-small">Refresh</button>
+                        <div class="wifi-networks-list" id="wifiNetworksList">
+                            <p class="loading">Loading networks...</p>
+                        </div>
+                    </div>
+
+                    <div class="wifi-connect-card">
+                        <h3>Connect to Network</h3>
+                        <div class="form-group">
+                            <label for="wifiSSID">Network Name (SSID)</label>
+                            <input type="text" id="wifiSSID" placeholder="Enter SSID">
+                        </div>
+                        <div class="form-group">
+                            <label for="wifiPassword">Password
+                                <button type="button" class="btn-toggle-secret" data-target="wifiPassword" title="Toggle password visibility">👁</button>
+                            </label>
+                            <input type="password" id="wifiPassword" placeholder="Enter password">
+                        </div>
+                        <button id="connectWiFiBtn" class="btn btn-small">Connect</button>
+                        <button id="disconnectWiFiBtn" class="btn btn-small btn-secondary">Disconnect</button>
+                    </div>
+
+                    <div class="wifi-hotspot-card">
+                        <h3>Create Hotspot (AP Mode)</h3>
+                        <div class="form-group">
+                            <label for="hotspotSSID">Hotspot Name (SSID)</label>
+                            <input type="text" id="hotspotSSID" placeholder="e.g., SRTLA-Device">
+                        </div>
+                        <div class="form-group">
+                            <label for="hotspotPassword">Password (min 8 characters)
+                                <button type="button" class="btn-toggle-secret" data-target="hotspotPassword" title="Toggle password visibility">👁</button>
+                            </label>
+                            <input type="password" id="hotspotPassword" placeholder="Enter password">
+                        </div>
+                        <div class="form-group">
+                            <label for="hotspotBand">Frequency Band</label>
+                            <select id="hotspotBand">
+                                <option value="2.4">2.4 GHz</option>
+                                <option value="5">5 GHz</option>
+                            </select>
+                        </div>
+                        <button id="createHotspotBtn" class="btn btn-small">Create Hotspot</button>
+                    </div>
+
+                    <div class="wifi-active-hotspots-card">
+                        <h3>Active Hotspots</h3>
+                        <div class="active-hotspots-list" id="activeHotspotsList">
+                            <p class="no-hotspots">No active hotspots</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <section class="modems-section" id="modemsSection">
+                <h2>
+                    LTE Modems
+                    <button id="refreshModems" class="btn-small">Refresh</button>
+                </h2>
+                <div class="modem-grid" id="modemGrid">
+                    <div class="modem-loading">Checking for modems...</div>
+                </div>
+            </section>
+        </div>
+
+        <!-- CAMERAS TAB -->
+        <div class="tab-content" id="cameras">
+            <section class="config-section">
+                <h2>DJI Camera Auto-Discovery</h2>
+                <div class="camera-discovery">
+                    <p class="section-description">
+                        Automatically discover and configure DJI cameras on your network.
+                        The system will scan for Bluetooth devices and push RTMP settings automatically.
+                    </p>
+
+                    <div class="discovery-controls">
+                        <button id="scanCamerasBtn" class="btn btn-primary">Start Scanning</button>
+                        <button id="stopScanBtn" class="btn btn-secondary" disabled>Stop Scan</button>
+                        <span id="scanStatus" class="scan-status"></span>
+                    </div>
+
+                    <div id="discoveredCamerasList" class="discovered-cameras-list">
+                        <p class="no-cameras">No cameras discovered. Click "Start Scanning" to begin.</p>
+                    </div>
+                </div>
+            </section>
+
+            <section class="config-section">
+                <h2>USB Cameras</h2>
+                <div class="usbcam-discovery">
+                    <p class="section-description">
+                        Detect and stream from USB webcams and capture devices (including Elgato).
+                        Cameras are captured via V4L2 and encoded with FFmpeg.
+                    </p>
+
+                    <div class="usbcam-controls">
+                        <button id="scanUSBCamsBtn" class="btn btn-primary">Scan for Cameras</button>
+                        <span id="usbcamScanStatus" class="scan-status"></span>
+                    </div>
+
+                    <div id="usbcamList" class="usbcam-list">
+                        <p class="no-cameras">No USB cameras detected. Click "Scan for Cameras" to search.</p>
+                    </div>
+                </div>
+            </section>
+        </div>
+
+        <!-- SETTINGS TAB -->
+        <div class="tab-content" id="settings">
+            <section class="config-section">
+                <h2>Updates</h2>
+                <div class="update-container">
+                    <div id="updateStatusContainer" class="update-status">
+                        <p class="loading">Checking for updates...</p>
+                    </div>
+                    
+                    <div class="versions-section">
+                        <h3>Available Versions</h3>
+                        <div id="versionsList" class="versions-list">
+                            <p class="loading">Loading versions...</p>
+                        </div>
+                    </div>
+
+                    <div id="backupsSection" class="backups-section" style="display:none;">
+                        <h3>Backup Versions (Rollback)</h3>
+                        <div id="backupsList" class="backups-list">
+                            <p class="loading">Loading backups...</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <section class="config-section">
+                <h2>Configuration</h2>
+                <div class="config-grid">
+                    <div class="config-group">
+                        <h3>RTMP Input</h3>
+                        <div class="form-group">
+                            <label for="rtmpPort">Listen Port</label>
+                            <input type="number" id="rtmpPort" value="1935">
+                        </div>
+                        <div class="form-group">
+                            <label for="streamKey">Stream Key
+                                <button type="button" class="btn-toggle-secret" data-target="streamKey" title="Toggle visibility">👁</button>
+                            </label>
+                            <input type="password" id="streamKey" value="live">
+                        </div>
+                        <div class="rtmp-url">
+                            <span class="label">RTMP URL:</span>
+                            <code id="rtmpUrl">rtmp://localhost:1935/live</code>
+                        </div>
+                    </div>
+
+                    <div class="config-group">
+                        <h3>SRTLA Output</h3>
+                        <div class="form-group">
+                            <label for="srtlaEnabled">
+                                <input type="checkbox" id="srtlaEnabled" checked>
+                                Enable SRTLA bonding
+                            </label>
+                        </div>
+                        <div class="form-group">
+                            <label for="remoteHost">Remote Host</label>
+                            <input type="text" id="remoteHost" value="localhost">
+                        </div>
+                        <div class="form-group">
+                            <label for="remotePort">Remote Port</label>
+                            <input type="number" id="remotePort" value="5000">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="config-group">
+                    <button id="saveConfigBtn" class="btn btn-save">Save Configuration</button>
+                </div>
+            </section>
+        </div>
+
+        <!-- ADVANCED TAB -->
+        <div class="tab-content" id="advanced">
+            <section class="config-section">
+                <h2>Network Interfaces & IPs</h2>
+                <div class="config-group">
+                    <div class="form-group">
+                        <label>Available Network Interfaces</label>
+                        <div class="interface-list" id="interfaceList">
+                            <span class="loading">Loading interfaces...</span>
+                        </div>
+                        <button id="addSelectedIPs" class="btn-small">Add Selected IPs</button>
+                        <button id="refreshInterfaces" class="btn-small">Refresh</button>
+                    </div>
+                    <div class="form-group">
+                        <label for="bindIPs">Bind IPs (one per line)</label>
+                        <textarea id="bindIPs" rows="6" placeholder="192.168.1.10&#10;192.168.2.10"></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label for="ipsFilePath">IPs File Path (optional)</label>
+                        <div class="file-input-group">
+                            <input type="text" id="ipsFilePath" placeholder="/etc/srtla/ips.txt">
+                            <button id="loadFromFile" class="btn-small">Load</button>
+                            <button id="saveToFile" class="btn-small">Save</button>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <section class="logs-section">
+                <h2>
+                    Logs
+                    <button id="clearLogsBtn" class="btn-small">Clear</button>
+                </h2>
+                <div class="log-filters">
+                    <label><input type="checkbox" id="filterFfmpeg" checked> FFmpeg</label>
+                    <label><input type="checkbox" id="filterSrtla" checked> SRTLA</label>
+                </div>
+                <div class="log-container" id="logContainer"></div>
+            </section>
+        </div>
+    </div>
+
+    <!-- Use modular JS with ES6 modules -->
+    <script type="module" src="js/main.js"></script>
+</body>
+</html>

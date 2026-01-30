@@ -1,0 +1,394 @@
+/* Camera Setup Styles */
+.camera-setup {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.setup-instruction {
+    background: rgba(25, 131, 178, 0.1);
+    border: 1px solid rgba(25, 131, 178, 0.3);
+    border-radius: 8px;
+    padding: 12px;
+}
+
+.setup-instruction h4 {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--accent-light);
+    margin-bottom: 8px;
+}
+
+.setup-instruction ol {
+    margin: 0;
+    padding-left: 20px;
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+}
+
+.setup-instruction li {
+    margin-bottom: 6px;
+    line-height: 1.4;
+}
+
+.setup-instruction strong {
+    color: var(--text-primary);
+}
+
+.camera-details {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.camera-details .form-group {
+    margin-bottom: 0;
+}
+
+.camera-details .form-group label {
+    margin-bottom: 6px;
+    display: block;
+}
+
+.copy-group {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+
+.copy-group input {
+    flex: 1;
+    padding: 10px 14px;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text-primary);
+    font-size: 0.9rem;
+    font-family: 'SF Mono', 'Monaco', 'Menlo', monospace;
+}
+
+.copy-group input:focus {
+    outline: none;
+    border-color: var(--accent-light);
+    box-shadow: 0 0 0 3px var(--accent-glow);
+}
+
+.btn-copy-field {
+    padding: 10px 14px;
+    font-size: 0.8rem;
+    background: var(--accent);
+    border: none;
+    color: white;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background 0.15s ease;
+    white-space: nowrap;
+    font-weight: 500;
+}
+
+.btn-copy-field:hover {
+    background: var(--accent-light);
+}
+
+.camera-notes {
+    padding: 12px;
+    background: rgba(245, 158, 11, 0.1);
+    border-left: 3px solid var(--warning);
+    border-radius: 4px;
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    line-height: 1.4;
+}
+
+/* DJI Camera Discovery Styles */
+.camera-discovery {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px;
+    margin-top: 16px;
+}
+
+.section-description {
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+    margin-bottom: 16px;
+}
+
+.discovery-controls {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+}
+
+.discovery-controls .btn {
+    padding: 10px 16px;
+    font-size: 0.9rem;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: 500;
+    transition: all 0.15s ease;
+}
+
+.discovery-controls .btn-primary {
+    background: var(--accent);
+    color: white;
+}
+
+.discovery-controls .btn-primary:hover:not(:disabled) {
+    background: var(--accent-light);
+    box-shadow: 0 4px 12px var(--accent-glow);
+}
+
+.discovery-controls .btn-primary:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.discovery-controls .btn-secondary {
+    background: transparent;
+    border: 1px solid var(--border-light);
+    color: var(--text-secondary);
+}
+
+.discovery-controls .btn-secondary:hover:not(:disabled) {
+    background: var(--bg-elevated);
+    border-color: var(--text-secondary);
+    color: var(--text-primary);
+}
+
+.discovery-controls .btn-secondary:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.scan-status {
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    padding: 0 12px;
+}
+
+.scan-status.scanning {
+    color: var(--accent-light);
+    animation: pulse 1s infinite;
+}
+
+@keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.6; }
+}
+
+.discovered-cameras-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 16px;
+    margin-top: 16px;
+}
+
+.no-cameras {
+    grid-column: 1 / -1;
+    text-align: center;
+    color: var(--text-secondary);
+    padding: 32px 16px;
+}
+
+.camera-card {
+    background: var(--bg-elevated);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px;
+    transition: all 0.2s ease;
+}
+
+.camera-card:hover {
+    border-color: var(--accent-light);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.camera-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: start;
+    margin-bottom: 12px;
+    gap: 8px;
+}
+
+.camera-card-title {
+    flex: 1;
+}
+
+.camera-name {
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 4px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.saved-config-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 2px 8px;
+    background: rgba(34, 197, 94, 0.15);
+    color: var(--success);
+    border-radius: 4px;
+    font-size: 0.7rem;
+    font-weight: 500;
+}
+
+.not-found-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 2px 8px;
+    background: rgba(251, 146, 60, 0.15);
+    color: var(--warning);
+    border-radius: 4px;
+    font-size: 0.7rem;
+    font-weight: 500;
+}
+
+.camera-card.not-discovered {
+    opacity: 0.7;
+    border-left: 3px solid var(--warning);
+}
+
+.camera-model {
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+}
+
+.camera-signal {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+}
+
+.signal-bars {
+    display: flex;
+    gap: 2px;
+}
+
+.signal-bar {
+    width: 2px;
+    height: 8px;
+    background: var(--text-secondary);
+    border-radius: 1px;
+}
+
+.signal-bar.active {
+    background: var(--success);
+}
+
+.camera-status {
+    padding: 8px;
+    border-radius: 6px;
+    font-size: 0.75rem;
+    font-weight: 500;
+    text-align: center;
+    margin-bottom: 12px;
+}
+
+.camera-status.idle {
+    background: rgba(113, 113, 113, 0.2);
+    color: var(--text-secondary);
+}
+
+.camera-status.connecting {
+    background: rgba(245, 158, 11, 0.2);
+    color: var(--warning);
+    animation: pulse 1s infinite;
+}
+
+.camera-status.streaming {
+    background: rgba(34, 197, 94, 0.2);
+    color: var(--success);
+}
+
+.camera-status.error {
+    background: rgba(239, 68, 68, 0.2);
+    color: var(--error);
+}
+
+.camera-details {
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    margin-bottom: 12px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+}
+
+.camera-detail-item {
+    display: flex;
+    justify-content: space-between;
+    padding: 6px 0;
+}
+
+.camera-detail-label {
+    color: var(--text-muted);
+}
+
+.camera-detail-value {
+    color: var(--text-primary);
+    font-weight: 500;
+}
+
+.camera-actions {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+    gap: 8px;
+}
+
+.camera-actions .btn-small {
+    padding: 8px 12px;
+    font-size: 0.75rem;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: 500;
+    transition: all 0.15s ease;
+}
+
+.camera-actions .btn-connect {
+    background: var(--accent);
+    color: white;
+}
+
+.camera-actions .btn-connect:hover:not(:disabled) {
+    background: var(--accent-light);
+}
+
+.camera-actions .btn-configure {
+    background: var(--success);
+    color: white;
+}
+
+.camera-actions .btn-configure:hover:not(:disabled) {
+    background: #16a34a;
+}
+
+.camera-actions .btn-forget {
+    background: transparent;
+    color: var(--text-secondary);
+    border: 1px solid var(--border-light);
+}
+
+.camera-actions .btn-forget:hover:not(:disabled) {
+    background: var(--bg-elevated);
+    border-color: var(--text-secondary);
+    color: var(--text-primary);
+}
+
+.camera-actions .btn-small:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+

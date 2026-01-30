@@ -1,0 +1,87 @@
+/* Interface List */
+.interface-list {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 8px;
+    max-height: 140px;
+    overflow-y: auto;
+    margin-bottom: 8px;
+}
+
+.interface-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 10px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.85rem;
+    transition: background 0.15s ease;
+}
+
+.interface-item:hover {
+    background: var(--bg-card);
+}
+
+.interface-item.down {
+    opacity: 0.5;
+}
+
+.iface-name {
+    font-weight: 500;
+    min-width: 80px;
+    color: var(--text-secondary);
+}
+
+.iface-badge {
+    display: inline-block;
+    padding: 2px 8px;
+    background: rgba(25, 131, 178, 0.15);
+    color: var(--accent-light);
+    border-radius: 3px;
+    font-size: 0.7rem;
+    font-weight: 500;
+    margin-left: 4px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.iface-ip {
+    color: var(--accent-light);
+    font-family: 'SF Mono', 'Monaco', 'Menlo', monospace;
+    font-size: 0.85rem;
+}
+
+.iface-down {
+    font-size: 0.7rem;
+    color: var(--warning);
+}
+
+.no-interfaces,
+.interface-list .loading,
+.interface-list .error {
+    color: var(--text-muted);
+    font-size: 0.85rem;
+    padding: 8px;
+}
+
+.interface-list .error {
+    color: var(--error);
+}
+
+/* File Input Group */
+.file-input-group {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+
+.file-input-group input {
+    flex: 1;
+}
+
+.file-input-group .btn-small {
+    margin-left: 0;
+}
+

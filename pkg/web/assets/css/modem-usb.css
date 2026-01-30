@@ -1,0 +1,320 @@
+/* Modems Section */
+.modems-section {
+    background: var(--bg-card);
+    padding: 20px;
+    border-radius: 12px;
+    border: 1px solid var(--border);
+    margin-bottom: 24px;
+}
+
+.modems-section h2 {
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.modem-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 16px;
+}
+.modems-section {
+    background: var(--bg-card);
+    border-radius: 12px;
+    padding: 24px;
+    margin-bottom: 24px;
+    border: 1px solid var(--border);
+}
+
+.modems-section h2 {
+    font-size: 0.85rem;
+    margin-bottom: 16px;
+    color: var(--text-secondary);
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.usbnet-section {
+    background: var(--bg-card);
+    border-radius: 12px;
+    padding: 24px;
+    margin-bottom: 24px;
+    border: 1px solid var(--border);
+}
+
+.usbnet-section h2 {
+    font-size: 0.85rem;
+    margin-bottom: 16px;
+    color: var(--text-secondary);
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.usbnet-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 16px;
+}
+
+.usbnet-card {
+    background: var(--bg-elevated);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px;
+    transition: all 0.2s ease;
+}
+
+.usbnet-card:hover {
+    border-color: var(--border-light);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.usbnet-card.has-error {
+    border-color: rgba(239, 68, 68, 0.5);
+    background: rgba(239, 68, 68, 0.05);
+}
+
+.device-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--border);
+}
+
+.device-serial {
+    font-size: 0.85rem;
+    font-weight: 500;
+    font-family: 'Monaco', 'Courier New', monospace;
+    color: var(--text-primary);
+}
+
+.device-state {
+    display: inline-block;
+    padding: 4px 10px;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.device-state.connected {
+    background: rgba(34, 197, 94, 0.15);
+    color: var(--success);
+}
+
+.device-state.pending {
+    background: rgba(245, 158, 11, 0.15);
+    color: var(--warning);
+}
+
+.device-state.disconnected {
+    background: rgba(107, 114, 128, 0.15);
+    color: var(--text-secondary);
+}
+
+.device-details {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin-bottom: 12px;
+    font-size: 0.85rem;
+}
+
+.device-details .detail {
+    display: flex;
+    flex-direction: column;
+}
+
+.device-details .label {
+    color: var(--text-muted);
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 2px;
+}
+
+.device-details .value {
+    color: var(--text-primary);
+    font-family: 'Monaco', 'Courier New', monospace;
+    font-size: 0.85rem;
+    word-break: break-all;
+}
+
+.device-error {
+    padding: 8px;
+    margin-bottom: 8px;
+    background: rgba(239, 68, 68, 0.1);
+    border: 1px solid rgba(239, 68, 68, 0.3);
+    border-radius: 4px;
+    color: var(--error);
+    font-size: 0.8rem;
+    line-height: 1.4;
+    word-break: break-word;
+}
+
+.device-timestamp {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px solid var(--border);
+}
+
+.usbnet-loading {
+    grid-column: 1 / -1;
+    padding: 24px;
+    text-align: center;
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+}
+
+.usbnet-none {
+    grid-column: 1 / -1;
+    padding: 24px;
+    text-align: center;
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+}
+
+.usbnet-error {
+    grid-column: 1 / -1;
+    padding: 24px;
+    text-align: center;
+    color: var(--error);
+    font-size: 0.9rem;
+}
+.modem-card {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.modem-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 8px;
+}
+
+.modem-id {
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.modem-model {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    text-align: right;
+}
+
+.modem-signal {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.signal-bars {
+    font-family: monospace;
+    font-size: 1.1rem;
+    letter-spacing: 1px;
+    color: var(--accent-light);
+}
+
+.signal-percent {
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.modem-carrier {
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+}
+
+.modem-phone {
+    font-family: 'SF Mono', 'Monaco', 'Menlo', monospace;
+    font-size: 0.85rem;
+    color: var(--accent-light);
+}
+
+.modem-state {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.85rem;
+}
+
+.modem-state.connected {
+    color: var(--success);
+}
+
+.modem-state.registered {
+    color: var(--warning);
+}
+
+.modem-state.disconnected {
+    color: var(--text-muted);
+}
+
+.state-icon {
+    font-size: 0.7rem;
+}
+
+.modem-data {
+    display: flex;
+    gap: 12px;
+    font-size: 0.8rem;
+    font-family: 'SF Mono', 'Monaco', 'Menlo', monospace;
+}
+
+.data-tx {
+    color: var(--success);
+}
+
+.data-rx {
+    color: var(--accent-light);
+}
+
+.modem-interface {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+}
+
+.modem-loading,
+.modem-none,
+.modem-error,
+.modem-unavailable {
+    padding: 20px;
+    text-align: center;
+    color: var(--text-muted);
+}
+
+.modem-unavailable code {
+    display: block;
+    margin-top: 8px;
+    padding: 8px 12px;
+    background: var(--bg-secondary);
+    border-radius: 6px;
+    font-size: 0.85rem;
+    color: var(--accent-light);
+}
+
+.modem-error {
+    color: var(--error);
+}
+
