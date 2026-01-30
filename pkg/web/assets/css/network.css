@@ -12,12 +12,13 @@
 .interface-item {
     display: flex;
     align-items: center;
-    gap: 8px;
-    padding: 8px 10px;
+    gap: 6px;
+    padding: 4px 8px;
     border-radius: 6px;
     cursor: pointer;
     font-size: 0.85rem;
     transition: background 0.15s ease;
+    margin-bottom: 2px;
 }
 
 .interface-item:hover {
@@ -28,21 +29,29 @@
     opacity: 0.5;
 }
 
+.interface-item input[type="checkbox"] {
+    flex-shrink: 0;
+    margin: 0;
+    vertical-align: middle;
+    width: 16px;
+    height: 16px;
+}
+
 .iface-name {
     font-weight: 500;
-    min-width: 80px;
+    min-width: auto;
     color: var(--text-secondary);
 }
 
 .iface-badge {
     display: inline-block;
-    padding: 2px 8px;
+    padding: 2px 6px;
     background: rgba(25, 131, 178, 0.15);
     color: var(--accent-light);
     border-radius: 3px;
-    font-size: 0.7rem;
+    font-size: 0.65rem;
     font-weight: 500;
-    margin-left: 4px;
+    margin-left: 2px;
     text-transform: uppercase;
     letter-spacing: 0.05em;
 }
@@ -50,11 +59,11 @@
 .iface-ip {
     color: var(--accent-light);
     font-family: 'SF Mono', 'Monaco', 'Menlo', monospace;
-    font-size: 0.85rem;
+    font-size: 0.8rem;
 }
 
 .iface-down {
-    font-size: 0.7rem;
+    font-size: 0.65rem;
     color: var(--warning);
 }
 

@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 
+	"srtla-manager/internal/config"
 	"srtla-manager/internal/logger"
 	"srtla-manager/internal/system"
 )
@@ -61,17 +62,18 @@ func (h *Handler) HandleConfigUpdate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var cfg interface{}
+	var cfg config.Config
 	if err := json.NewDecoder(r.Body).Decode(&cfg); err != nil {
 		http.Error(w, fmt.Sprintf("Invalid JSON: %v", err), http.StatusBadRequest)
 		return
 	}
 
-	// Re-marshal to config.Config type
-	data, _ := json.Marshal(cfg)
-	var newCfg interface{}
-	json.Unmarshal(data, &newCfg)
+	if err := h.config.Update(cfg); err != nil {
+		http.Error(w, fmt.Sprintf("Failed to update config: %v", err), http.StatusInternalServerError)
+		return
+	}
 
+	logger.Info("Configuration updated successfully")
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]string{"status": "updated"})
 }

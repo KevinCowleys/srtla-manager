@@ -97,24 +97,36 @@ class SRTLAManager {
             }
         }
 
-        const config = {
-            rtmp: {
-                listen_port: parseInt(document.getElementById('rtmpPort').value),
-                stream_key: document.getElementById('streamKey').value
-            },
-            srt: { local_port: 6000 },
-            srtla: {
-                enabled: document.getElementById('srtlaEnabled').checked,
-                binary_path: 'srtla_send',
-                remote_host: document.getElementById('remoteHost').value,
-                remote_port: parseInt(document.getElementById('remotePort').value),
-                bind_ips: bindIPs,
-                bind_ips_file: document.getElementById('ipsFilePath').value.trim()
-            },
-            web: { port: 8080 }
-        };
-
         try {
+            // Get current config to preserve fields not in the UI
+            const currentConfig = await API.get('/api/config');
+            
+            const config = {
+                rtmp: {
+                    listen_port: parseInt(document.getElementById('rtmpPort').value),
+                    stream_key: document.getElementById('streamKey').value
+                },
+                srt: { local_port: 6000 },
+                srtla: {
+                    enabled: document.getElementById('srtlaEnabled').checked,
+                    binary_path: 'srtla_send',
+                    remote_host: document.getElementById('remoteHost').value,
+                    remote_port: parseInt(document.getElementById('remotePort').value),
+                    bind_ips: bindIPs,
+                    bind_ips_file: document.getElementById('ipsFilePath').value.trim(),
+                    classic: currentConfig.srtla?.classic || false,
+                    no_quality: currentConfig.srtla?.no_quality || false,
+                    exploration: currentConfig.srtla?.exploration || false
+                },
+                web: { port: 8080 },
+                logging: currentConfig.logging || {
+                    debug: false,
+                    file_path: 'logs/srtla-manager.log',
+                    max_size_mb: 10,
+                    max_backups: 3
+                }
+            };
+
             await API.put('/api/config', config);
             showNotification('Configuration saved');
         } catch (e) {
@@ -294,11 +306,24 @@ class SRTLAManager {
         }
     }
 
-    updateRTMPUrl() {
+    async updateRTMPUrl() {
         const port = document.getElementById('rtmpPort')?.value || 1935;
-        const key = document.getElementById('streamKey')?.value || 'live';
         const el = document.getElementById('rtmpUrl');
-        if (el) el.textContent = `rtmp://<host>:${port}/${key}`;
+        
+        if (!el) return;
+        
+        try {
+            const interfaces = await API.get('/api/system/interfaces');
+            // Find the first up interface with an IP (prefer non-loopback)
+            const iface = interfaces.find(i => i.is_up && i.ips && i.ips.length > 0 && !i.is_loopback) ||
+                         interfaces.find(i => i.is_up && i.ips && i.ips.length > 0);
+            const host = iface && iface.ips[0] ? iface.ips[0] : 'localhost';
+            el.textContent = `rtmp://${host}:${port}/<STREAM_KEY>`;
+        } catch (e) {
+            console.error('Failed to load interfaces:', e);
+            el.textContent = `rtmp://localhost:${port}/<STREAM_KEY>`;
+        }
+        
         this.updateCameraConnectionDetails();
     }
 
@@ -369,7 +394,12 @@ class SRTLAManager {
     toggleSecretField(fieldId) {
         const field = document.getElementById(fieldId);
         if (!field) return;
-        field.type = field.type === 'password' ? 'text' : 'password';
+        const isPassword = field.type === 'password';
+        field.type = isPassword ? 'text' : 'password';
+        const btn = document.querySelector(`[data-target="${fieldId}"]`);
+        if (btn) {
+            btn.classList.toggle('revealed', isPassword);
+        }
     }
 
     setupEventListeners() {

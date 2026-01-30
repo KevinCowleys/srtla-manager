@@ -20,3 +20,5 @@ logging:
     file_path: logs/srtla-manager.log
     max_size_mb: 10
     max_backups: 3
+cameras: {}
+usb_cameras: {}

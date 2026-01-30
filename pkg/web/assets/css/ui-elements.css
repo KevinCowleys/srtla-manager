@@ -21,6 +21,21 @@
     border-color: var(--border-light);
 }
 
+.btn-toggle-secret .icon-eye {
+    width: 16px;
+    height: 16px;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+.btn-toggle-secret .icon-eye circle {
+    display: none;
+}
+
+.btn-toggle-secret.revealed .icon-eye circle {
+    display: block;
+}
+
 input[type="password"].revealed {
     font-family: monospace;
 }
@@ -302,6 +317,20 @@ input[type="password"].revealed {
     margin-bottom: 8px;
     font-size: 0.85rem;
     color: var(--text-secondary);
+}
+
+.form-group label:has(input[type="checkbox"]) {
+    justify-content: flex-start;
+    gap: 8px;
+    width: auto;
+}
+
+.form-group label input[type="checkbox"] {
+    margin: 0;
+    flex-shrink: 0;
+    width: 16px;
+    height: 16px;
+    vertical-align: middle;
 }
 
 .form-group input[type="text"],
