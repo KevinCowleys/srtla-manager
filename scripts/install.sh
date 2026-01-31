@@ -217,6 +217,7 @@ create_user_and_dirs() {
     chown -R "$SERVICE_USER:$SERVICE_GROUP" "$LOG_DIR"
     
     chmod 755 "$CONFIG_DIR"
+    chown "$SERVICE_USER:$SERVICE_GROUP" "$CONFIG_DIR" || log_error "Failed to chown $CONFIG_DIR"
     chmod 755 "$DATA_DIR"
     chmod 755 "$LOG_DIR"
 }
@@ -309,8 +310,8 @@ create_default_config() {
     
     if [ -f "$CONFIG_FILE" ]; then
         log_warn "Config file already exists at $CONFIG_FILE, ensuring correct ownership and permissions"
-        chown "$SERVICE_USER:$SERVICE_GROUP" "$CONFIG_FILE"
-        chmod 666 "$CONFIG_FILE"
+        chown "$SERVICE_USER:$SERVICE_GROUP" "$CONFIG_FILE" || log_error "Failed to chown $CONFIG_FILE"
+        chmod 666 "$CONFIG_FILE" || log_error "Failed to chmod $CONFIG_FILE"
         return
     fi
     
@@ -343,8 +344,8 @@ cameras: {}
 usb_cameras: {}
 EOF
     
-    chown "$SERVICE_USER:$SERVICE_GROUP" "$CONFIG_FILE"
-    chmod 666 "$CONFIG_FILE"
+    chown "$SERVICE_USER:$SERVICE_GROUP" "$CONFIG_FILE" || log_error "Failed to chown $CONFIG_FILE"
+    chmod 666 "$CONFIG_FILE" || log_error "Failed to chmod $CONFIG_FILE"
     
     log_info "Default configuration created at $CONFIG_FILE"
 }
