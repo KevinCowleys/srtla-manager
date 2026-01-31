@@ -310,7 +310,7 @@ create_default_config() {
     if [ -f "$CONFIG_FILE" ]; then
         log_warn "Config file already exists at $CONFIG_FILE, ensuring correct ownership and permissions"
         chown "$SERVICE_USER:$SERVICE_GROUP" "$CONFIG_FILE"
-        chmod 644 "$CONFIG_FILE"
+        chmod 666 "$CONFIG_FILE"
         return
     fi
     
@@ -344,7 +344,7 @@ usb_cameras: {}
 EOF
     
     chown "$SERVICE_USER:$SERVICE_GROUP" "$CONFIG_FILE"
-    chmod 644 "$CONFIG_FILE"
+    chmod 666 "$CONFIG_FILE"
     
     log_info "Default configuration created at $CONFIG_FILE"
 }
