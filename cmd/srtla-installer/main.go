@@ -28,7 +28,22 @@ type InstallResponse struct {
 }
 
 func main() {
-	os.Remove(socketPath)
+	// If the socket file exists, check if it's stale (not in use)
+	if _, err := os.Stat(socketPath); err == nil {
+		// Try to connect to see if something is listening
+		conn, err := net.Dial("unix", socketPath)
+		if err == nil {
+			// Something is listening, exit with error
+			conn.Close()
+			log.Fatalf("Socket %s already in use by another process", socketPath)
+		} else {
+			// No process is listening, remove stale socket
+			if rmErr := os.Remove(socketPath); rmErr != nil {
+				log.Fatalf("Failed to remove stale socket %s: %v", socketPath, rmErr)
+			}
+		}
+	}
+
 	listener, err := net.Listen("unix", socketPath)
 	if err != nil {
 		log.Fatalf("Failed to listen on %s: %v", socketPath, err)

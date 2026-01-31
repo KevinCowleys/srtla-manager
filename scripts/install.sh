@@ -517,8 +517,29 @@ main() {
     download_binary
     create_default_config
     create_systemd_service
-    enable_service
+
+    # Install and start srtla-installer first
     install_srtla_installer
+
+    # Wait for srtla-installer socket to be available (max 15s)
+    SOCKET_PATH="/run/srtla-installer.sock"
+    log_info "Waiting for srtla-installer socket at $SOCKET_PATH..."
+    for i in {1..15}; do
+        if [ -S "$SOCKET_PATH" ]; then
+            # Try to connect to the socket
+            timeout 1 bash -c "> /dev/tcp/localhost/0" 2>/dev/null || true
+            log_info "srtla-installer socket is available."
+            break
+        fi
+        sleep 1
+        if [ $i -eq 15 ]; then
+            log_error "Timeout waiting for srtla-installer socket at $SOCKET_PATH."
+            exit 1
+        fi
+    done
+
+    # Now enable and start srtla-manager service
+    enable_service
     print_summary
 
     # --- SRTLA Send Install ---
