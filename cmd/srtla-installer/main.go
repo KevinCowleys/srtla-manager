@@ -3,14 +3,39 @@ package main
 import (
 	"bufio"
 	"encoding/json"
+	"flag"
 	"fmt"
 	"io"
 	"log"
 	"net"
 	"os"
 	"os/exec"
+	"runtime"
 	"strings"
 )
+
+// Version/build info (set via -ldflags)
+var (
+	Version   = "v0.0.0-dev"
+	Commit    = "unknown"
+	Branch    = "unknown"
+	BuildTime = "unknown"
+	Builder   = "unknown"
+)
+
+func DetailedInfo() string {
+	return fmt.Sprintf(
+		"srtla-installer %s\n  Commit: %s\n  Branch: %s\n  Built: %s\n  Builder: %s\n  Go: %s\n  OS: %s\n  Arch: %s",
+		Version,
+		Commit,
+		Branch,
+		BuildTime,
+		Builder,
+		runtime.Version(),
+		runtime.GOOS,
+		runtime.GOARCH,
+	)
+}
 
 const (
 	socketPath = "/run/srtla-installer.sock"
@@ -28,6 +53,15 @@ type InstallResponse struct {
 }
 
 func main() {
+	versionFlag := flag.Bool("version", false, "Show version and exit")
+	versionShort := flag.Bool("v", false, "Show version and exit (shorthand)")
+	flag.Parse()
+
+	if *versionFlag || *versionShort {
+		fmt.Println(DetailedInfo())
+		os.Exit(0)
+	}
+
 	// If the socket file exists, check if it's stale (not in use)
 	if _, err := os.Stat(socketPath); err == nil {
 		// Try to connect to see if something is listening

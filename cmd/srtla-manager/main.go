@@ -28,7 +28,14 @@ import (
 
 func main() {
 	configPath := flag.String("config", "config.yaml", "Path to configuration file")
+	versionFlag := flag.Bool("version", false, "Show version and exit")
+	versionShort := flag.Bool("v", false, "Show version and exit (shorthand)")
 	flag.Parse()
+
+	if *versionFlag || *versionShort {
+		fmt.Println(version.DetailedInfo())
+		os.Exit(0)
+	}
 
 	cfgManager := config.NewManager(*configPath)
 	if err := cfgManager.Load(); err != nil {
