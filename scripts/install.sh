@@ -410,6 +410,22 @@ enable_service() {
 }
 
 install_srtla_installer() {
+        # Remove stale socket if present and not in use
+        SOCKET_PATH="/run/srtla-installer.sock"
+        if [ -S "$SOCKET_PATH" ]; then
+            log_info "Checking for stale srtla-installer socket at $SOCKET_PATH..."
+            # Try to connect to the socket
+            if timeout 1 bash -c "> /dev/tcp/localhost/0" 2>/dev/null; then
+                log_error "Socket $SOCKET_PATH is in use by another process. Aborting."
+                return 1
+            else
+                log_warn "Removing stale srtla-installer socket at $SOCKET_PATH (requires sudo/root)..."
+                rm -f "$SOCKET_PATH" || {
+                    log_error "Failed to remove stale socket $SOCKET_PATH. Please remove it manually with: sudo rm $SOCKET_PATH"
+                    return 1
+                }
+            fi
+        fi
     log_info "\nSRTLA Installer Daemon Installation (srtla-installer)"
     INSTALLER_REPO="KevinCowleys/srtla-manager"
     INSTALLER_NAME="srtla-installer"
