@@ -268,12 +268,9 @@ download_binary() {
     chmod +x "$TEMP_BINARY"
     log_info "chmod +x completed"
 
-    # Verify the binary works
-    if ! "$TEMP_BINARY" -version &>/dev/null 2>&1; then
-        log_warn "Could not verify binary version flag"
-    else
-        log_info "Binary version check succeeded"
-    fi
+
+    # Skip version check to avoid hanging if binary does not support it
+    log_info "Skipping binary version check (may hang if not supported)"
 
     # Stop service if it's running before replacing binary
     log_info "Checking if $SERVICE_NAME is running before replacing binary..."
