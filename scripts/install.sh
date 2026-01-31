@@ -11,7 +11,7 @@ BINARY_NAME="srtla-manager"
 SERVICE_NAME="srtla-manager"
 SERVICE_USER="srtla"
 SERVICE_GROUP="srtla"
-CONFIG_DIR="/etc/srtla-manager"
+CONFIG_DIR="/home/srtla/srtla-manager-config"
 DATA_DIR="/var/lib/srtla-manager"
 LOG_DIR="/var/log/srtla-manager"
 
@@ -347,7 +347,6 @@ create_systemd_service() {
     log_info "Creating systemd service..."
     
     SERVICE_FILE="/etc/systemd/system/${SERVICE_NAME}.service"
-    
     cat > "$SERVICE_FILE" << EOF
 [Unit]
 Description=SRTLA Manager - Stream Management System
@@ -373,7 +372,7 @@ TimeoutStopSec=30
 NoNewPrivileges=true
 ProtectSystem=strict
 ProtectHome=true
-ReadWritePaths=$DATA_DIR $LOG_DIR
+ReadWritePaths=$DATA_DIR $LOG_DIR $CONFIG_DIR
 
 [Install]
 WantedBy=multi-user.target
