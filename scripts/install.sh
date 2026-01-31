@@ -366,6 +366,9 @@ Type=simple
 User=$SERVICE_USER
 Group=$SERVICE_GROUP
 WorkingDirectory=$INSTALL_DIR
+# Kill any process using port 8080 or 1935 before starting
+ExecStartPre=/usr/bin/bash -c 'fuser -k 8080/tcp 2>/dev/null || true'
+ExecStartPre=/usr/bin/bash -c 'fuser -k 1935/tcp 2>/dev/null || true'
 ExecStart=$INSTALL_DIR/$BINARY_NAME -config $CONFIG_DIR/config.yaml
 Restart=always
 RestartSec=10
@@ -478,6 +481,9 @@ After=network.target
 Type=simple
 User=root
 Group=root
+# Kill any process using the socket and remove it before starting
+ExecStartPre=/usr/bin/bash -c 'fuser -k /run/srtla-installer.sock 2>/dev/null || true'
+ExecStartPre=/usr/bin/bash -c 'rm -f /run/srtla-installer.sock 2>/dev/null || true'
 ExecStart=$INSTALLER_DIR/$INSTALLER_NAME
 Restart=always
 RestartSec=10
