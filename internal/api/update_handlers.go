@@ -682,3 +682,53 @@ func (h *Handler) broadcastSRTLAInstallProgress(level, message string) {
 		})
 	}
 }
+
+// --- SRTLA Installer Update Logic ---
+// Call updateSrtlaInstallerIfNeeded() as part of performUpdate
+func updateSrtlaInstallerIfNeeded() {
+	const installerPath = "/usr/local/bin/srtla-installer"
+	currentVersion := internal.GetInstallerVersion(installerPath)
+	checker := updates.NewInstallerChecker(currentVersion)
+	release, downloadURL, err := checker.GetLatestRelease()
+	if err != nil {
+		logger.Error("Failed to check srtla-installer updates: %v", err)
+		return
+	}
+	if release == nil || downloadURL == "" {
+		logger.Info("No srtla-installer update available or asset missing.")
+		return
+	}
+	if release.TagName == currentVersion {
+		logger.Info("srtla-installer is up to date (%s)", currentVersion)
+		return
+	}
+	logger.Info("Updating srtla-installer from %s to %s", currentVersion, release.TagName)
+
+	// Download new binary
+	tempDir, err := os.MkdirTemp("", "srtla-installer-update-")
+	if err != nil {
+		logger.Error("Failed to create temp dir: %v", err)
+		return
+	}
+	defer os.RemoveAll(tempDir)
+	tempBinary := filepath.Join(tempDir, "srtla-installer")
+	if err := downloadFile(downloadURL, tempBinary); err != nil {
+		logger.Error("Failed to download srtla-installer: %v", err)
+		return
+	}
+	os.Chmod(tempBinary, 0755)
+
+	// Stop service
+	exec.Command("sudo", "systemctl", "stop", "srtla-installer").Run()
+
+	// Replace binary (privileged)
+	if err := copyFile(tempBinary, installerPath); err != nil {
+		logger.Error("Failed to replace srtla-installer: %v", err)
+		return
+	}
+	os.Chmod(installerPath, 0755)
+
+	// Start service
+	exec.Command("sudo", "systemctl", "start", "srtla-installer").Run()
+	logger.Info("srtla-installer updated to %s", release.TagName)
+}
