@@ -42,7 +42,7 @@ clean:
 # Run the application
 run: build
 	@echo "Running $(BINARY_NAME)..."
-	@./$(BIN_DIR)/$(BINARY_NAME) -config config.yaml
+	@./$(BIN_DIR)/$(BINARY_NAME) -config /home/srtla/srtla-manager-config/config.yaml
 
 # Run tests
 test:

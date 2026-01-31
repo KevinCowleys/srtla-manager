@@ -308,7 +308,9 @@ create_default_config() {
     CONFIG_FILE="$CONFIG_DIR/config.yaml"
     
     if [ -f "$CONFIG_FILE" ]; then
-        log_warn "Config file already exists at $CONFIG_FILE, skipping creation"
+        log_warn "Config file already exists at $CONFIG_FILE, ensuring correct ownership and permissions"
+        chown "$SERVICE_USER:$SERVICE_GROUP" "$CONFIG_FILE"
+        chmod 640 "$CONFIG_FILE"
         return
     fi
     

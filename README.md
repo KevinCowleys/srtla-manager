@@ -40,7 +40,7 @@ make clean && make build && make run
 ## Running
 
 ```bash
-./bin/srtla-manager -config config.yaml
+./bin/srtla-manager -config /home/srtla/srtla-manager-config/config.yaml
 ```
 
 ## Package Organization
