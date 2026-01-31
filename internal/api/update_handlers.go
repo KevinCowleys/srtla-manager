@@ -14,9 +14,9 @@ import (
 	"strings"
 	"time"
 
+	internal "srtla-manager/internal"
 	"srtla-manager/internal/logger"
 	"srtla-manager/internal/updates"
-	internal "srtla-manager/internal"
 )
 
 const (
