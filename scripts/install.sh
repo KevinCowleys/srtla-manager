@@ -83,18 +83,15 @@ get_latest_version() {
 }
 
 find_download_url() {
-    PATTERN="${OS_TYPE}-${ARCH_TYPE}"
-    
-    # Get all asset URLs
+    PATTERN="srtla-manager-${OS_TYPE}-${ARCH_TYPE}$"
+    # Only match the srtla-manager binary, not srtla-installer
     DOWNLOAD_URL=$(echo "$RELEASE_INFO" | grep -o '"browser_download_url": "[^"]*' | cut -d'"' -f4 | grep "$PATTERN" | head -1)
-    
     if [ -z "$DOWNLOAD_URL" ]; then
-        log_error "No compatible binary found for $PATTERN"
+        log_error "No compatible srtla-manager binary found for $PATTERN"
         log_warn "Available assets:"
         echo "$RELEASE_INFO" | grep -o '"name": "[^"]*' | cut -d'"' -f4 | grep -v ".sha256"
         exit 1
     fi
-    
     log_info "Download URL: $DOWNLOAD_URL"
 }
 
