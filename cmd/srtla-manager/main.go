@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"strings"
 	"syscall"
 	"time"
@@ -31,7 +32,16 @@ func main() {
 
 	cfgManager := config.NewManager(*configPath)
 	if err := cfgManager.Load(); err != nil {
-		log.Fatalf("Failed to load config: %v", err)
+		log.Printf("[WARN] Failed to load config: %v\nAttempting to create a default config...", err)
+		// Ensure the config directory exists before saving
+		configDir := filepath.Dir(*configPath)
+		if mkErr := os.MkdirAll(configDir, 0755); mkErr != nil {
+			log.Fatalf("Failed to create config directory %s: %v", configDir, mkErr)
+		}
+		if saveErr := cfgManager.Save(); saveErr != nil {
+			log.Fatalf("Failed to create default config: %v", saveErr)
+		}
+		log.Printf("[INFO] Default config created at %s", *configPath)
 	}
 
 	cfg := cfgManager.Get()
