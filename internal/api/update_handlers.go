@@ -16,6 +16,7 @@ import (
 
 	"srtla-manager/internal/logger"
 	"srtla-manager/internal/updates"
+	internal "srtla-manager/internal"
 )
 
 const (
@@ -637,71 +638,28 @@ func detectArchitecture() string {
 
 // installDebPackage installs a .deb package
 func (h *Handler) installDebPackage(debFile string) error {
-	h.broadcastSRTLAInstallProgress("info", "Attempting to install .deb package...")
+	h.broadcastSRTLAInstallProgress("info", "Attempting to install .deb package via privileged backend...")
 
-	// Try dpkg first (Debian/Ubuntu)
-	dpkgPaths := []string{"/usr/bin/dpkg", "/bin/dpkg", "dpkg"}
-	var dpkgCmd string
-	for _, path := range dpkgPaths {
-		if _, err := exec.LookPath(path); err == nil {
-			dpkgCmd = path
-			break
-		}
+	resp, err := internal.InstallDebPackage(debFile)
+	if err != nil {
+		h.broadcastSRTLAInstallProgress("error", fmt.Sprintf("Privileged install error: %v", err))
+		return fmt.Errorf("privileged install error: %w", err)
 	}
 
-	if dpkgCmd != "" {
-		h.broadcastSRTLAInstallProgress("info", "Running dpkg...")
-		cmd := exec.Command(dpkgCmd, "-i", debFile)
-		output, err := cmd.CombinedOutput()
-		if err != nil {
-			h.broadcastSRTLAInstallProgress("info", fmt.Sprintf("dpkg output: %s", string(output)))
-
-			// Try to fix dependencies
-			h.broadcastSRTLAInstallProgress("info", "Attempting to fix dependencies...")
-			aptPaths := []string{"/usr/bin/apt-get", "/usr/bin/apt"}
-			for _, aptPath := range aptPaths {
-				if _, err := exec.LookPath(aptPath); err == nil {
-					cmd = exec.Command(aptPath, "install", "-f", "-y")
-					fixOutput, _ := cmd.CombinedOutput()
-					h.broadcastSRTLAInstallProgress("info", fmt.Sprintf("Dependency fix output: %s", string(fixOutput)))
-					break
-				}
-			}
-		} else {
-			h.broadcastSRTLAInstallProgress("success", "Package installed successfully!")
-			return nil
+	if resp.Success {
+		h.broadcastSRTLAInstallProgress("success", "Package installed successfully!")
+		if resp.Output != "" {
+			h.broadcastSRTLAInstallProgress("info", resp.Output)
 		}
+		return nil
 	}
 
-	// Try alien + rpm for Fedora/RHEL systems
-	alienPath := "/usr/bin/alien"
-	if _, err := exec.LookPath(alienPath); err == nil {
-		h.broadcastSRTLAInstallProgress("info", "Converting .deb to .rpm using alien...")
-		cmd := exec.Command(alienPath, "-r", debFile)
-		output, err := cmd.CombinedOutput()
-		if err != nil {
-			return fmt.Errorf("alien conversion failed: %v - %s", err, string(output))
-		}
-
-		// Find the generated .rpm file
-		rpmFile := strings.Replace(debFile, ".deb", ".rpm", 1)
-		h.broadcastSRTLAInstallProgress("info", "Installing .rpm package...")
-
-		rpmPaths := []string{"/usr/bin/rpm", "/bin/rpm"}
-		for _, rpmPath := range rpmPaths {
-			if _, err := exec.LookPath(rpmPath); err == nil {
-				cmd = exec.Command(rpmPath, "-i", rpmFile)
-				output, err = cmd.CombinedOutput()
-				if err != nil {
-					return fmt.Errorf("rpm install failed: %v - %s", err, string(output))
-				}
-				h.broadcastSRTLAInstallProgress("success", "Package installed successfully!")
-				return nil
-			}
-		}
+	msg := resp.Error
+	if msg == "" {
+		msg = "Unknown error from privileged installer."
 	}
-
-	return fmt.Errorf("no suitable package manager found (dpkg or alien+rpm). Please install the package manually from: %s", debFile)
+	h.broadcastSRTLAInstallProgress("error", msg)
+	return fmt.Errorf("privileged install failed: %s", msg)
 }
 
 // broadcastSRTLAInstallProgress broadcasts installation progress to connected clients
