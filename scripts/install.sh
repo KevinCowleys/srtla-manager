@@ -317,26 +317,30 @@ create_default_config() {
     log_info "Creating default configuration..."
     
     cat > "$CONFIG_FILE" << 'EOF'
-web:
-  port: 8080
-
 rtmp:
-  listen_port: 1935
-  stream_key: live
-
+        listen_port: 1935
+        stream_key: live
+srt:
+        local_port: 6000
 srtla:
-  enabled: true
-  remote_host: localhost
-  remote_port: 5000
-  bind_ips: []
-
-ffmpeg:
-  path: ffmpeg
-  input_options: ""
-  output_options: ""
-
-process:
-  logs_retention: 1000
+        enabled: true
+        binary_path: srtla_send
+        remote_host: localhost
+        remote_port: 5000
+        bind_ips: []
+        bind_ips_file: ""
+        classic: false
+        no_quality: false
+        exploration: false
+web:
+        port: 8080
+logging:
+        debug: false
+        file_path: logs/srtla-manager.log
+        max_size_mb: 10
+        max_backups: 3
+cameras: {}
+usb_cameras: {}
 EOF
     
     chown "$SERVICE_USER:$SERVICE_GROUP" "$CONFIG_FILE"
