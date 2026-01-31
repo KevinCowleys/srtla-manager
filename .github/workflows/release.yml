@@ -43,14 +43,15 @@ jobs:
               GOARCH="arm"
               GOARM="7"
               OUTPUT_NAME="srtla-manager-linux-armv7"
+              INSTALLER_OUTPUT="srtla-installer-linux-armv7"
             else
               GOARCH="$ARCH"
               GOARM=""
               OUTPUT_NAME="srtla-manager-linux-$ARCH"
+              INSTALLER_OUTPUT="srtla-installer-linux-$ARCH"
             fi
             
-            echo "Building for linux/$ARCH..."
-            
+            echo "Building srtla-manager for linux/$ARCH..."
             env GOOS=linux GOARCH=$GOARCH GOARM=$GOARM \
               go build \
                 -ldflags "-X 'srtla-manager/internal/version.Version=${VERSION}' \
@@ -60,10 +61,17 @@ jobs:
                           -X 'srtla-manager/internal/version.Builder=github-actions'" \
                 -o "dist/${OUTPUT_NAME}" \
                 ./cmd/srtla-manager
-            
-            # Create checksum
+
+            echo "Building srtla-installer for linux/$ARCH..."
+            env GOOS=linux GOARCH=$GOARCH GOARM=$GOARM \
+              go build \
+                -o "dist/${INSTALLER_OUTPUT}" \
+                ./cmd/srtla-installer
+
+            # Create checksums
             cd dist
             sha256sum "${OUTPUT_NAME}" > "${OUTPUT_NAME}.sha256"
+            sha256sum "${INSTALLER_OUTPUT}" > "${INSTALLER_OUTPUT}.sha256"
             cd ..
           done
 
@@ -75,5 +83,6 @@ jobs:
           prerelease: false
           files: |
             dist/srtla-manager-*
+            dist/srtla-installer-*
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

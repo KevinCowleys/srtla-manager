@@ -177,6 +177,7 @@ func main() {
 	mux.HandleFunc("/api/srtla/ips/file/load", handler.HandleIPsFileLoad)
 	mux.HandleFunc("/api/srtla/ips/file/save", handler.HandleIPsFileSave)
 	mux.HandleFunc("/api/system/dependencies", handler.HandleDependencies)
+	mux.HandleFunc("/api/system/install-deb", handler.HandleInstallDeb)
 	mux.HandleFunc("/api/system/interfaces", handler.HandleInterfaces)
 	mux.HandleFunc("/api/modems", handler.HandleModems)
 	mux.HandleFunc("/api/modems/", handler.HandleModems)

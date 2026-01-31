@@ -407,6 +407,77 @@ enable_service() {
     fi
 }
 
+install_srtla_installer() {
+    log_info "\nSRTLA Installer Daemon Installation (srtla-installer)"
+    INSTALLER_REPO="KevinCowleys/srtla-manager"
+    INSTALLER_NAME="srtla-installer"
+    INSTALLER_SERVICE="srtla-installer"
+    INSTALLER_DIR="/usr/local/bin"
+    # Use same arch/OS detection as above
+    PATTERN="installer-${OS_TYPE}-${ARCH_TYPE}"
+    log_info "Fetching latest release information for srtla-installer..."
+    INSTALLER_RELEASE_INFO=$(curl -sL "https://api.github.com/repos/${INSTALLER_REPO}/releases/latest") || {
+        log_error "Failed to fetch latest release from GitHub for srtla-installer"
+        return
+    }
+    INSTALLER_URL=$(echo "$INSTALLER_RELEASE_INFO" | grep -o '"browser_download_url": "[^"]*' | cut -d'"' -f4 | grep "$PATTERN" | head -1)
+    if [ -z "$INSTALLER_URL" ]; then
+        log_error "No compatible srtla-installer binary found for $PATTERN"
+        log_warn "Available assets:"
+        echo "$INSTALLER_RELEASE_INFO" | grep -o '"name": "[^"]*' | cut -d'"' -f4 | grep installer
+        return
+    fi
+    log_info "Download URL for srtla-installer: $INSTALLER_URL"
+    TMP_INSTALLER="/tmp/$INSTALLER_NAME"
+    curl -L -o "$TMP_INSTALLER" "$INSTALLER_URL" || {
+        log_error "Failed to download srtla-installer binary"
+        return
+    }
+    chmod +x "$TMP_INSTALLER"
+    mv "$TMP_INSTALLER" "$INSTALLER_DIR/$INSTALLER_NAME" || {
+        log_error "Failed to move srtla-installer to $INSTALLER_DIR"
+        return
+    }
+    chown root:root "$INSTALLER_DIR/$INSTALLER_NAME"
+    chmod 755 "$INSTALLER_DIR/$INSTALLER_NAME"
+    log_info "srtla-installer installed to $INSTALLER_DIR/$INSTALLER_NAME"
+    # Create systemd service
+    INSTALLER_SERVICE_FILE="/etc/systemd/system/${INSTALLER_SERVICE}.service"
+    cat > "$INSTALLER_SERVICE_FILE" << EOF
+[Unit]
+Description=SRTLA Privileged Installer Daemon
+After=network.target
+
+[Service]
+Type=simple
+User=root
+Group=root
+ExecStart=$INSTALLER_DIR/$INSTALLER_NAME
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=srtla-installer
+NoNewPrivileges=true
+ReadWritePaths=/run /tmp
+
+[Install]
+WantedBy=multi-user.target
+EOF
+    chmod 644 "$INSTALLER_SERVICE_FILE"
+    log_info "Systemd service file created at $INSTALLER_SERVICE_FILE"
+    systemctl daemon-reload
+    systemctl enable "$INSTALLER_SERVICE"
+    systemctl restart "$INSTALLER_SERVICE"
+    sleep 2
+    if systemctl is-active --quiet "$INSTALLER_SERVICE"; then
+        log_info "srtla-installer service started successfully"
+    else
+        log_error "srtla-installer service failed to start"
+        systemctl status "$INSTALLER_SERVICE" || true
+    fi
+}
+
 print_summary() {
     cat << EOF
 
@@ -445,6 +516,7 @@ main() {
     create_default_config
     create_systemd_service
     enable_service
+    install_srtla_installer
     print_summary
 
     # --- SRTLA Send Install ---

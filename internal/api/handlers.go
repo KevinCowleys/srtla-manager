@@ -9,6 +9,7 @@ import (
 	"sync"
 	"time"
 
+	"srtla-manager/internal"
 	"srtla-manager/internal/config"
 	"srtla-manager/internal/dji"
 	"srtla-manager/internal/modem"
@@ -27,6 +28,11 @@ const (
 	PipelineModeReceiving PipelineMode = "receiving"
 	PipelineModeStreaming PipelineMode = "streaming"
 )
+
+// InstallDebRequest is the request body for installing a .deb package
+type InstallDebRequest struct {
+	DebPath string `json:"deb_path"`
+}
 
 type Handler struct {
 	config        *config.Manager
@@ -54,6 +60,41 @@ type Handler struct {
 	restartTrackerMu sync.RWMutex
 	ffmpegRestarts   *RestartTracker
 	srtlaRestarts    *RestartTracker
+}
+
+// InstallDebResponse is the response from the installer
+type InstallDebResponse struct {
+	Success bool   `json:"success"`
+	Output  string `json:"output"`
+	Error   string `json:"error,omitempty"`
+}
+
+// HandleInstallDeb handles POST /api/system/install-deb
+func (h *Handler) HandleInstallDeb(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	var req InstallDebRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		jsonError(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+	if req.DebPath == "" {
+		jsonError(w, "deb_path is required", http.StatusBadRequest)
+		return
+	}
+	resp, err := internal.InstallDebPackage(req.DebPath)
+	if err != nil {
+		jsonError(w, "Install error: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(InstallDebResponse{
+		Success: resp.Success,
+		Output:  resp.Output,
+		Error:   resp.Error,
+	})
 }
 
 type RestartTracker struct {
