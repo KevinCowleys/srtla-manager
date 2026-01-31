@@ -266,25 +266,29 @@ download_binary() {
     fi
     
     chmod +x "$TEMP_BINARY"
-    
+    log_info "chmod +x completed"
+
     # Verify the binary works
     if ! "$TEMP_BINARY" -version &>/dev/null 2>&1; then
-        # Fallback - not all binaries support -version
         log_warn "Could not verify binary version flag"
+    else
+        log_info "Binary version check succeeded"
     fi
-    
+
     # Stop service if it's running before replacing binary
+    log_info "Checking if $SERVICE_NAME is running before replacing binary..."
     if systemctl is-active --quiet "$SERVICE_NAME" 2>/dev/null; then
         log_info "Stopping existing service before replacing binary..."
         systemctl stop "$SERVICE_NAME" || log_warn "Failed to stop service"
     fi
-    
+
     # Kill any remaining processes using the binary
+    log_info "Checking for running $BINARY_NAME processes..."
     if pgrep -x "$BINARY_NAME" > /dev/null; then
         log_info "Waiting for processes to terminate..."
         pkill -TERM "$BINARY_NAME"
         sleep 3
-        
+
         # Force kill if still running
         if pgrep -x "$BINARY_NAME" > /dev/null; then
             log_warn "Force killing remaining processes..."
@@ -292,16 +296,17 @@ download_binary() {
             sleep 1
         fi
     fi
-    
-    # Move to install directory
+
+    log_info "Copying new binary to $INSTALL_DIR/$BINARY_NAME..."
     cp "$TEMP_BINARY" "$INSTALL_DIR/$BINARY_NAME" || {
         log_error "Failed to copy binary to install directory"
         log_error "The binary may still be in use. Try: systemctl stop $SERVICE_NAME"
         exit 1
     }
+    log_info "Setting ownership and permissions on $INSTALL_DIR/$BINARY_NAME..."
     chown "$SERVICE_USER:$SERVICE_GROUP" "$INSTALL_DIR/$BINARY_NAME"
     chmod 755 "$INSTALL_DIR/$BINARY_NAME"
-    
+
     log_info "Binary installed to $INSTALL_DIR/$BINARY_NAME"
 }
 
