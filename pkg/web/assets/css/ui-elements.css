@@ -473,14 +473,24 @@ input[type="password"].revealed {
     z-index: 1000;
     animation: slideIn 0.3s ease;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+    transition: bottom 0.3s ease;
+    max-width: 400px;
+    word-wrap: break-word;
 }
 
 .notification.success {
     background: var(--accent);
+    color: white;
 }
 
 .notification.error {
-    background: var(--error);
+    background: #dc3545;
+    color: white;
+}
+
+.notification.info {
+    background: #17a2b8;
+    color: white;
 }
 
 .notification.fade-out {

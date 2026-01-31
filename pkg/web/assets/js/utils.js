@@ -36,11 +36,34 @@ export function copyToClipboard(text, callback) {
     });
 }
 
-export function showNotification(message, type = 'success') {
+export function showNotification(title, message, type = 'success') {
+    // Handle old 2-parameter calls (message, type)
+    if (typeof message === 'string' && (message === 'success' || message === 'error' || message === 'info')) {
+        type = message;
+        message = title;
+        title = '';
+    }
+    
     const notification = document.createElement('div');
     notification.className = `notification ${type}`;
-    notification.textContent = message;
+    
+    if (title && message) {
+        notification.innerHTML = `<strong>${escapeHtml(title)}</strong><br>${escapeHtml(message)}`;
+    } else {
+        notification.textContent = message || title;
+    }
+    
     document.body.appendChild(notification);
+    
+    // Stack notifications vertically
+    const existingNotifications = document.querySelectorAll('.notification:not(.fade-out)');
+    let offset = 24;
+    existingNotifications.forEach(notif => {
+        const height = notif.offsetHeight;
+        notif.style.bottom = offset + 'px';
+        offset += height + 12;
+    });
+    
     setTimeout(() => {
         notification.classList.add('fade-out');
         setTimeout(() => notification.remove(), 300);

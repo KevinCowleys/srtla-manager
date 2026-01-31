@@ -67,6 +67,8 @@ type Checker struct {
 	repo           string
 	currentVersion string
 	httpClient     *http.Client
+	cacheDir       string
+	cacheTTL       time.Duration
 }
 
 // NewChecker creates a new GitHub update checker
@@ -83,6 +85,8 @@ func NewCheckerWithRepo(owner, repo, currentVersion string) *Checker {
 		httpClient: &http.Client{
 			Timeout: 10 * time.Second,
 		},
+		cacheDir: "/tmp/srtla-manager-cache",
+		cacheTTL: 10 * time.Minute,
 	}
 }
 
@@ -121,6 +125,16 @@ func (c *Checker) CheckForUpdates() (*UpdateInfo, error) {
 
 // GetLatestRelease fetches the latest release from GitHub
 func (c *Checker) GetLatestRelease() (*Release, error) {
+	endpoint := "latest"
+
+	// Try cache first
+	if cached, ok := c.readCache(endpoint); ok {
+		var release Release
+		if err := json.Unmarshal(cached, &release); err == nil {
+			return &release, nil
+		}
+	}
+
 	url := fmt.Sprintf("%s/repos/%s/%s/releases/latest", GitHubAPIBaseURL, c.owner, c.repo)
 
 	resp, err := c.httpClient.Get(url)
@@ -149,11 +163,24 @@ func (c *Checker) GetLatestRelease() (*Release, error) {
 		return nil, fmt.Errorf("failed to parse release JSON: %w", err)
 	}
 
+	// Cache the response
+	c.writeCache(endpoint, body)
+
 	return &release, nil
 }
 
 // GetAllReleases fetches all releases from GitHub
 func (c *Checker) GetAllReleases(limit int) ([]Release, error) {
+	endpoint := fmt.Sprintf("releases_%d", limit)
+
+	// Try cache first
+	if cached, ok := c.readCache(endpoint); ok {
+		var releases []Release
+		if err := json.Unmarshal(cached, &releases); err == nil {
+			return releases, nil
+		}
+	}
+
 	url := fmt.Sprintf("%s/repos/%s/%s/releases?per_page=%d", GitHubAPIBaseURL, c.owner, c.repo, limit)
 
 	resp, err := c.httpClient.Get(url)
@@ -176,6 +203,9 @@ func (c *Checker) GetAllReleases(limit int) ([]Release, error) {
 	if err := json.Unmarshal(body, &releases); err != nil {
 		return nil, fmt.Errorf("failed to parse releases JSON: %w", err)
 	}
+
+	// Cache the response
+	c.writeCache(endpoint, body)
 
 	return releases, nil
 }
@@ -282,4 +312,43 @@ func createFileWithParentDirs(path string) (io.WriteCloser, error) {
 	}
 
 	return file, nil
+}
+
+// getCacheFilePath returns the cache file path for a specific endpoint
+func (c *Checker) getCacheFilePath(endpoint string) string {
+	// Create a safe filename from owner/repo/endpoint
+	safeName := strings.ReplaceAll(fmt.Sprintf("%s_%s_%s", c.owner, c.repo, endpoint), "/", "_")
+	return filepath.Join(c.cacheDir, safeName+".json")
+}
+
+// readCache reads cached data if it's still valid
+func (c *Checker) readCache(endpoint string) ([]byte, bool) {
+	cachePath := c.getCacheFilePath(endpoint)
+
+	info, err := os.Stat(cachePath)
+	if err != nil {
+		return nil, false
+	}
+
+	// Check if cache is still valid
+	if time.Since(info.ModTime()) > c.cacheTTL {
+		return nil, false
+	}
+
+	data, err := os.ReadFile(cachePath)
+	if err != nil {
+		return nil, false
+	}
+
+	return data, true
+}
+
+// writeCache writes data to cache
+func (c *Checker) writeCache(endpoint string, data []byte) error {
+	if err := os.MkdirAll(c.cacheDir, 0755); err != nil {
+		return err
+	}
+
+	cachePath := c.getCacheFilePath(endpoint)
+	return os.WriteFile(cachePath, data, 0644)
 }

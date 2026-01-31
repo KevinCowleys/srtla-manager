@@ -18,6 +18,7 @@
     <link rel="stylesheet" href="css/updates.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.17/dist/hls.min.js"></script>
+    <script src="js/marked.min.js"></script>
 </head>
 <body>
     <div class="container">
@@ -30,6 +31,7 @@
             <a class="tab-button active" href="#dashboard">Dashboard</a>
             <a class="tab-button" href="#cameras">Cameras</a>
             <a class="tab-button" href="#network">Network</a>
+            <a class="tab-button" href="#updates">Updates</a>
             <a class="tab-button" href="#settings">Settings</a>
             <a class="tab-button" href="#advanced">Advanced</a>
         </nav>
@@ -236,10 +238,10 @@
             </section>
         </div>
 
-        <!-- SETTINGS TAB -->
-        <div class="tab-content" id="settings">
+        <!-- UPDATES TAB -->
+        <div class="tab-content" id="updates">
             <section class="config-section">
-                <h2>Updates</h2>
+                <h2>SRTLA Manager Updates</h2>
                 <div class="update-container">
                     <div id="updateStatusContainer" class="update-status">
                         <p class="loading">Checking for updates...</p>
@@ -261,6 +263,25 @@
                 </div>
             </section>
 
+            <section class="config-section">
+                <h2>SRTLA Send Updates</h2>
+                <div class="update-container">
+                    <div id="srtlaSendUpdateContainer" class="update-status">
+                        <p class="loading">Checking for SRTLA Send updates...</p>
+                    </div>
+                    
+                    <div class="versions-section">
+                        <h3>Available SRTLA Send Versions</h3>
+                        <div id="srtlaSendVersionsList" class="versions-list">
+                            <p class="loading">Loading versions...</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </div>
+
+        <!-- SETTINGS TAB -->
+        <div class="tab-content" id="settings">
             <section class="config-section">
                 <h2>Configuration</h2>
                 <div class="config-grid">

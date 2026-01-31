@@ -14,12 +14,14 @@ import (
 	"strings"
 	"time"
 
+	"srtla-manager/internal/logger"
 	"srtla-manager/internal/updates"
 )
 
 const (
-	backupDir = "/opt/srtla-manager/backups"
-	binPath   = "/opt/srtla-manager/srtla-manager"
+	backupDir            = "/opt/srtla-manager/backups"
+	binPath              = "/opt/srtla-manager/srtla-manager"
+	srtlaSendDownloadDir = "/tmp/srtla-downloads"
 )
 
 // UpdateStatusResponse represents the current update status
@@ -69,11 +71,13 @@ func (h *Handler) HandleCheckUpdates(w http.ResponseWriter, r *http.Request) {
 	checker := updates.NewChecker(currentVersion)
 	updateInfo, err := checker.CheckForUpdates()
 	if err != nil {
+		logger.Error("Failed to check for updates: %v", err)
 		http.Error(w, fmt.Sprintf("Failed to check for updates: %v", err), http.StatusInternalServerError)
 		return
 	}
 
 	if updateInfo == nil {
+		logger.Error("No update information available")
 		http.Error(w, "No update information available", http.StatusInternalServerError)
 		return
 	}
@@ -108,6 +112,7 @@ func (h *Handler) HandleGetReleases(w http.ResponseWriter, r *http.Request) {
 	checker := updates.NewChecker(currentVersion)
 	releases, err := checker.GetAllReleases(20)
 	if err != nil {
+		logger.Error("Failed to fetch releases: %v", err)
 		http.Error(w, fmt.Sprintf("Failed to fetch releases: %v", err), http.StatusInternalServerError)
 		return
 	}
@@ -155,6 +160,7 @@ func (h *Handler) HandleGetBackups(w http.ResponseWriter, r *http.Request) {
 
 	backups, err := getBackupsList()
 	if err != nil {
+		logger.Error("Failed to get backups: %v", err)
 		http.Error(w, fmt.Sprintf("Failed to get backups: %v", err), http.StatusInternalServerError)
 		return
 	}
@@ -192,6 +198,7 @@ func (h *Handler) HandleRollback(w http.ResponseWriter, r *http.Request) {
 
 	// Perform rollback
 	if err := performRollback(backupFile); err != nil {
+		logger.Error("Rollback failed: %v", err)
 		http.Error(w, fmt.Sprintf("Rollback failed: %v", err), http.StatusInternalServerError)
 		return
 	}
@@ -442,4 +449,278 @@ func isChecksumFile(name string) bool {
 
 func hasSuffix(name, suffix string) bool {
 	return len(name) >= len(suffix) && name[len(name)-len(suffix):] == suffix
+}
+
+// SRTLA Send Update Handlers
+
+// HandleCheckSRTLASendUpdates checks for available srtla_send updates (GET /api/updates/srtla/check)
+func (h *Handler) HandleCheckSRTLASendUpdates(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	checker := updates.NewSRTLASendChecker()
+	updateInfo, err := checker.CheckForUpdates()
+	if err != nil {
+		logger.Error("Failed to check for srtla_send updates: %v", err)
+		http.Error(w, fmt.Sprintf("Failed to check for srtla_send updates: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	if updateInfo == nil {
+		logger.Error("No srtla_send update information available")
+		http.Error(w, "No update information available", http.StatusInternalServerError)
+		return
+	}
+
+	resp := UpdateStatusResponse{
+		Available:      updateInfo.Available,
+		CurrentVersion: updateInfo.CurrentVersion,
+		LatestVersion:  updateInfo.LatestVersion,
+		ReleaseURL:     updateInfo.ReleaseURL,
+		ReleaseNotes:   updateInfo.ReleaseNotes,
+		DownloadURL:    updateInfo.DownloadURL,
+		ChecksumURL:    updateInfo.DownloadURL + ".sha256",
+		IsPrerelease:   updateInfo.IsPrerelease,
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(resp)
+}
+
+// HandleGetSRTLASendReleases gets recent srtla_send releases (GET /api/updates/srtla/releases)
+func (h *Handler) HandleGetSRTLASendReleases(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	checker := updates.NewSRTLASendChecker()
+	releases, err := checker.GetAllReleases(20)
+	if err != nil {
+		logger.Error("Failed to fetch srtla_send releases: %v", err)
+		http.Error(w, fmt.Sprintf("Failed to fetch srtla_send releases: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(releases)
+}
+
+// HandleInstallSRTLASend downloads and installs srtla_send (POST /api/updates/srtla/install)
+func (h *Handler) HandleInstallSRTLASend(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var req UpdateRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, fmt.Sprintf("Invalid request: %v", err), http.StatusBadRequest)
+		return
+	}
+
+	if req.Version == "" {
+		http.Error(w, "Version is required", http.StatusBadRequest)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+
+	// Perform installation in background
+	go h.performSRTLASendInstall(req.Version)
+
+	json.NewEncoder(w).Encode(UpdateProgressResponse{
+		Status:  "started",
+		Message: fmt.Sprintf("Downloading and installing srtla_send %s...", req.Version),
+	})
+}
+
+// performSRTLASendInstall downloads and installs srtla_send
+func (h *Handler) performSRTLASendInstall(version string) {
+	h.broadcastSRTLAInstallProgress("info", fmt.Sprintf("Starting installation of srtla_send %s", version))
+
+	checker := updates.NewSRTLASendChecker()
+
+	// Get releases to find the target version
+	h.broadcastSRTLAInstallProgress("info", "Fetching release information...")
+	releases, err := checker.GetAllReleases(100)
+	if err != nil {
+		h.broadcastSRTLAInstallProgress("error", fmt.Sprintf("Failed to fetch releases: %v", err))
+		return
+	}
+
+	var targetRelease *updates.Release
+	for i := range releases {
+		if releases[i].TagName == version {
+			targetRelease = &releases[i]
+			break
+		}
+	}
+
+	if targetRelease == nil {
+		h.broadcastSRTLAInstallProgress("error", fmt.Sprintf("Release %s not found", version))
+		return
+	}
+
+	// Detect system architecture
+	h.broadcastSRTLAInstallProgress("info", "Detecting system architecture...")
+	arch := detectArchitecture()
+	if arch == "" {
+		h.broadcastSRTLAInstallProgress("error", "Failed to detect system architecture")
+		return
+	}
+	h.broadcastSRTLAInstallProgress("info", fmt.Sprintf("Detected architecture: %s", arch))
+
+	// Find the appropriate .deb file
+	var debURL string
+	for _, asset := range targetRelease.Assets {
+		if strings.Contains(asset.Name, arch) && strings.HasSuffix(asset.Name, ".deb") {
+			debURL = asset.DownloadURL
+		}
+	}
+
+	if debURL == "" {
+		h.broadcastSRTLAInstallProgress("error", fmt.Sprintf("No .deb package found for %s", arch))
+		return
+	}
+
+	h.broadcastSRTLAInstallProgress("info", fmt.Sprintf("Found package: %s", debURL))
+
+	// Create download directory
+	if err := os.MkdirAll(srtlaSendDownloadDir, 0755); err != nil {
+		h.broadcastSRTLAInstallProgress("error", fmt.Sprintf("Failed to create download directory: %v", err))
+		return
+	}
+
+	// Download the .deb file
+	debFile := filepath.Join(srtlaSendDownloadDir, fmt.Sprintf("srtla_%s_%s.deb", strings.TrimPrefix(version, "v"), arch))
+	h.broadcastSRTLAInstallProgress("info", fmt.Sprintf("Downloading to %s...", debFile))
+	if err := downloadFile(debURL, debFile); err != nil {
+		h.broadcastSRTLAInstallProgress("error", fmt.Sprintf("Download failed: %v", err))
+		return
+	}
+	h.broadcastSRTLAInstallProgress("success", "Download complete!")
+
+	// Install the package
+	h.broadcastSRTLAInstallProgress("info", "Installing package...")
+	if err := h.installDebPackage(debFile); err != nil {
+		h.broadcastSRTLAInstallProgress("error", fmt.Sprintf("Installation failed: %v", err))
+		return
+	}
+	h.broadcastSRTLAInstallProgress("success", fmt.Sprintf("srtla_send %s installed successfully!", version))
+}
+
+// detectArchitecture detects the system architecture
+func detectArchitecture() string {
+	cmd := exec.Command("dpkg", "--print-architecture")
+	output, err := cmd.Output()
+	if err != nil {
+		// Fallback to uname
+		cmd = exec.Command("uname", "-m")
+		output, err = cmd.Output()
+		if err != nil {
+			return ""
+		}
+		arch := strings.TrimSpace(string(output))
+		if arch == "x86_64" {
+			return "amd64"
+		} else if arch == "aarch64" {
+			return "arm64"
+		}
+		return arch
+	}
+
+	return strings.TrimSpace(string(output))
+}
+
+// installDebPackage installs a .deb package
+func (h *Handler) installDebPackage(debFile string) error {
+	h.broadcastSRTLAInstallProgress("info", "Attempting to install .deb package...")
+
+	// Try dpkg first (Debian/Ubuntu)
+	dpkgPaths := []string{"/usr/bin/dpkg", "/bin/dpkg", "dpkg"}
+	var dpkgCmd string
+	for _, path := range dpkgPaths {
+		if _, err := exec.LookPath(path); err == nil {
+			dpkgCmd = path
+			break
+		}
+	}
+
+	if dpkgCmd != "" {
+		h.broadcastSRTLAInstallProgress("info", "Running dpkg...")
+		cmd := exec.Command(dpkgCmd, "-i", debFile)
+		output, err := cmd.CombinedOutput()
+		if err != nil {
+			h.broadcastSRTLAInstallProgress("info", fmt.Sprintf("dpkg output: %s", string(output)))
+
+			// Try to fix dependencies
+			h.broadcastSRTLAInstallProgress("info", "Attempting to fix dependencies...")
+			aptPaths := []string{"/usr/bin/apt-get", "/usr/bin/apt"}
+			for _, aptPath := range aptPaths {
+				if _, err := exec.LookPath(aptPath); err == nil {
+					cmd = exec.Command(aptPath, "install", "-f", "-y")
+					fixOutput, _ := cmd.CombinedOutput()
+					h.broadcastSRTLAInstallProgress("info", fmt.Sprintf("Dependency fix output: %s", string(fixOutput)))
+					break
+				}
+			}
+		} else {
+			h.broadcastSRTLAInstallProgress("success", "Package installed successfully!")
+			return nil
+		}
+	}
+
+	// Try alien + rpm for Fedora/RHEL systems
+	alienPath := "/usr/bin/alien"
+	if _, err := exec.LookPath(alienPath); err == nil {
+		h.broadcastSRTLAInstallProgress("info", "Converting .deb to .rpm using alien...")
+		cmd := exec.Command(alienPath, "-r", debFile)
+		output, err := cmd.CombinedOutput()
+		if err != nil {
+			return fmt.Errorf("alien conversion failed: %v - %s", err, string(output))
+		}
+
+		// Find the generated .rpm file
+		rpmFile := strings.Replace(debFile, ".deb", ".rpm", 1)
+		h.broadcastSRTLAInstallProgress("info", "Installing .rpm package...")
+
+		rpmPaths := []string{"/usr/bin/rpm", "/bin/rpm"}
+		for _, rpmPath := range rpmPaths {
+			if _, err := exec.LookPath(rpmPath); err == nil {
+				cmd = exec.Command(rpmPath, "-i", rpmFile)
+				output, err = cmd.CombinedOutput()
+				if err != nil {
+					return fmt.Errorf("rpm install failed: %v - %s", err, string(output))
+				}
+				h.broadcastSRTLAInstallProgress("success", "Package installed successfully!")
+				return nil
+			}
+		}
+	}
+
+	return fmt.Errorf("no suitable package manager found (dpkg or alien+rpm). Please install the package manually from: %s", debFile)
+}
+
+// broadcastSRTLAInstallProgress broadcasts installation progress to connected clients
+func (h *Handler) broadcastSRTLAInstallProgress(level, message string) {
+	// Log to console/file
+	switch level {
+	case "error":
+		logger.Error("[SRTLA_INSTALL] %s", message)
+	case "success":
+		logger.Info("[SRTLA_INSTALL] %s", message)
+	default:
+		logger.Printf("[SRTLA_INSTALL] %s", message)
+	}
+
+	// Broadcast via websocket
+	if h.wsHub != nil {
+		h.wsHub.Broadcast("srtla_install", map[string]string{
+			"level":   level,
+			"message": message,
+		})
+	}
 }

@@ -442,6 +442,54 @@ main() {
     create_systemd_service
     enable_service
     print_summary
+
+    # --- SRTLA Send Install ---
+    log_info "\nSRTLA Send Installation (irlserver/srtla_send)"
+    SEND_REPO="irlserver/srtla_send"
+    log_info "Fetching latest release information for srtla_send..."
+    SEND_RELEASE_INFO=$(curl -sL "https://api.github.com/repos/${SEND_REPO}/releases/latest") || {
+        log_error "Failed to fetch latest release from GitHub for srtla_send"
+        exit 1
+    }
+    SEND_LATEST_VERSION=$(echo "$SEND_RELEASE_INFO" | grep -o '"tag_name": "[^"]*' | cut -d'"' -f4)
+    if [ -z "$SEND_LATEST_VERSION" ]; then
+        log_error "Failed to fetch latest srtla_send release: API may have rate limited the request"
+        exit 1
+    fi
+    log_info "Latest srtla_send version: $SEND_LATEST_VERSION"
+    # Find .deb asset
+    SEND_DEB_URL=$(echo "$SEND_RELEASE_INFO" | grep -o '"browser_download_url": "[^"]*\.deb"' | cut -d'"' -f4 | grep "amd64" | head -1)
+    if [ -z "$SEND_DEB_URL" ]; then
+        log_error "No .deb package found for srtla_send (amd64)"
+        log_warn "Available assets:"
+        echo "$SEND_RELEASE_INFO" | grep -o '"name": "[^"]*' | cut -d'"' -f4
+        exit 1
+    fi
+    log_info "Download URL for srtla_send .deb: $SEND_DEB_URL"
+    SEND_DEB_FILE="/tmp/srtla_send_${SEND_LATEST_VERSION}_amd64.deb"
+    curl -L -o "$SEND_DEB_FILE" "$SEND_DEB_URL" || {
+        log_error "Failed to download srtla_send .deb package"
+        exit 1
+    }
+    log_info "Downloaded srtla_send .deb to $SEND_DEB_FILE"
+    # Install .deb
+    if command -v dpkg &> /dev/null; then
+        log_info "Installing srtla_send .deb with dpkg..."
+        dpkg -i "$SEND_DEB_FILE" || {
+            log_warn "dpkg install failed, trying apt-get -f install..."
+            apt-get -f install -y || {
+                log_error "Failed to fix dependencies for srtla_send .deb"
+                exit 1
+            }
+        }
+    else
+        log_error "dpkg not found, cannot install .deb package for srtla_send"
+        exit 1
+    fi
+    log_info "srtla_send installed successfully."
+    # Clean up
+    rm -f "$SEND_DEB_FILE"
+    log_info "srtla_send .deb install complete."
 }
 
 main

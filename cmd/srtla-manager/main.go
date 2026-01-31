@@ -199,6 +199,11 @@ func main() {
 	mux.HandleFunc("/api/updates/backups", handler.HandleGetBackups)
 	mux.HandleFunc("/api/updates/rollback", handler.HandleRollback)
 
+	// SRTLA Send update endpoints
+	mux.HandleFunc("/api/updates/srtla/check", handler.HandleCheckSRTLASendUpdates)
+	mux.HandleFunc("/api/updates/srtla/releases", handler.HandleGetSRTLASendReleases)
+	mux.HandleFunc("/api/updates/srtla/install", handler.HandleInstallSRTLASend)
+
 	// HLS preview static files
 	mux.Handle("/preview/", http.StripPrefix("/preview/", http.FileServer(http.Dir(handler.PreviewDir()))))
 	mux.Handle("/preview-temp/", http.StripPrefix("/preview-temp/", http.FileServer(http.Dir("/tmp/srtla-preview-temp"))))

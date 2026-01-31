@@ -142,6 +142,21 @@ class SRTLAManager {
             case 'modems': this.modem.update(msg.data); break;
             case 'usbnet': this.usbnet.update(msg.data); break;
             case 'wifi': this.wifi.updateStatus(); break;
+            case 'srtla_install': this.handleSRTLAInstallProgress(msg.data); break;
+        }
+    }
+
+    handleSRTLAInstallProgress(data) {
+        const { level, message } = data;
+        console.log(`[SRTLA Install ${level}]: ${message}`);
+        
+        // Show notification for important updates
+        if (level === 'error') {
+            showNotification('Installation Error', message, 'error');
+        } else if (level === 'success') {
+            showNotification('Installation Success', message, 'success');
+        } else {
+            showNotification('Installation Progress', message, 'info');
         }
     }
 
