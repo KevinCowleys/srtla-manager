@@ -36,12 +36,8 @@ func main() {
 			// Something is listening, exit with error
 			conn.Close()
 			log.Fatalf("Socket %s already in use by another process", socketPath)
-		} else {
-			// No process is listening, remove stale socket
-			if rmErr := os.Remove(socketPath); rmErr != nil {
-				log.Fatalf("Failed to remove stale socket %s: %v", socketPath, rmErr)
-			}
 		}
+		// If not in use, just try to bind; let net.Listen handle any errors
 	}
 
 	listener, err := net.Listen("unix", socketPath)
