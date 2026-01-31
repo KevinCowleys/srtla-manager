@@ -413,11 +413,26 @@ install_srtla_installer() {
         # Always remove the socket before starting installer
         SOCKET_PATH="/run/srtla-installer.sock"
         if [ -S "$SOCKET_PATH" ]; then
-            log_warn "Removing existing srtla-installer socket at $SOCKET_PATH (requires sudo/root)..."
+            log_info "Cleaning up old srtla-installer socket at $SOCKET_PATH before start..."
+            # Check if a process is listening on the socket
+            if fuser "$SOCKET_PATH" 2>/dev/null | grep -q '[0-9]'; then
+                log_warn "A process is using $SOCKET_PATH. Attempting to stop srtla-installer service and kill any stale processes."
+                systemctl stop srtla-installer 2>/dev/null || true
+                sleep 2
+                # Try to kill any process still using the socket
+                fuser -k "$SOCKET_PATH" 2>/dev/null || true
+                sleep 1
+            fi
             rm -f "$SOCKET_PATH" || {
                 log_error "Failed to remove socket $SOCKET_PATH. Please remove it manually with: sudo rm $SOCKET_PATH"
                 return 1
             }
+        fi
+
+        # Ensure we are running as root for correct permissions
+        if [[ $EUID -ne 0 ]]; then
+            log_error "srtla-installer must be started as root to own the socket and set permissions. Aborting."
+            return 1
         fi
     log_info "\nSRTLA Installer Daemon Installation (srtla-installer)"
     INSTALLER_REPO="KevinCowleys/srtla-manager"
