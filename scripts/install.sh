@@ -377,8 +377,6 @@ TimeoutStopSec=30
 
 # Security
 NoNewPrivileges=true
-ProtectSystem=strict
-ProtectHome=true
 ReadWritePaths=$DATA_DIR $LOG_DIR $CONFIG_DIR
 
 [Install]
