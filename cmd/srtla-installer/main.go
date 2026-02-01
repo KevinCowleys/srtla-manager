@@ -241,12 +241,22 @@ func handleInstallerUpdate(conn net.Conn, req UpdateInstallerRequest) {
 		time.Sleep(500 * time.Millisecond)
 		log.Printf("[UPDATE] Wait period complete, proceeding with binary replacement")
 
-		// Replace the binary using rename (atomic on Linux)
+		// Replace the binary (try rename first, fall back to copy if cross-device)
 		if err := os.Rename(req.SourcePath, req.TargetPath); err != nil {
-			log.Printf("[UPDATE] FAILED: Could not replace binary: %v", err)
-			return
+			// If rename fails due to cross-device link, fall back to copy + delete
+			log.Printf("[UPDATE] Rename failed (%v), trying copy method", err)
+			if err := copyFile(req.SourcePath, req.TargetPath); err != nil {
+				log.Printf("[UPDATE] FAILED: Could not copy binary: %v", err)
+				return
+			}
+			// Delete the temp source file
+			if err := os.Remove(req.SourcePath); err != nil {
+				log.Printf("[UPDATE] WARNING: Could not remove temp source file: %v", err)
+			}
+			log.Printf("[UPDATE] Binary replaced via copy method")
+		} else {
+			log.Printf("[UPDATE] Binary replaced via rename")
 		}
-		log.Printf("[UPDATE] Binary replaced successfully")
 
 		// Ensure proper permissions
 		if err := os.Chmod(req.TargetPath, 0755); err != nil {
@@ -312,14 +322,24 @@ func handleBinaryUpdate(conn net.Conn, req UpdateBinaryRequest) {
 		time.Sleep(500 * time.Millisecond)
 	}
 
-	// Replace the binary using rename (atomic on Linux)
+	// Replace the binary (try rename first, fall back to copy if cross-device)
 	log.Printf("[BINARY_UPDATE] Replacing binary: %s -> %s", req.SourcePath, req.TargetPath)
 	if err := os.Rename(req.SourcePath, req.TargetPath); err != nil {
-		log.Printf("[BINARY_UPDATE] FAILED: Could not replace binary: %v", err)
-		writeBinaryUpdateResponse(conn, false, fmt.Sprintf("Failed to replace binary: %v", err))
-		return
+		// If rename fails due to cross-device link, fall back to copy + delete
+		log.Printf("[BINARY_UPDATE] Rename failed (%v), trying copy method", err)
+		if err := copyFile(req.SourcePath, req.TargetPath); err != nil {
+			log.Printf("[BINARY_UPDATE] FAILED: Could not copy binary: %v", err)
+			writeBinaryUpdateResponse(conn, false, fmt.Sprintf("Failed to replace binary: %v", err))
+			return
+		}
+		// Delete the temp source file
+		if err := os.Remove(req.SourcePath); err != nil {
+			log.Printf("[BINARY_UPDATE] WARNING: Could not remove temp source file: %v", err)
+		}
+		log.Printf("[BINARY_UPDATE] Binary replaced via copy method")
+	} else {
+		log.Printf("[BINARY_UPDATE] Binary replaced via rename")
 	}
-	log.Printf("[BINARY_UPDATE] Binary replaced successfully")
 
 	// Ensure proper permissions
 	if err := os.Chmod(req.TargetPath, 0755); err != nil {
@@ -335,8 +355,23 @@ func handleBinaryUpdate(conn net.Conn, req UpdateBinaryRequest) {
 		if output, err := cmd.CombinedOutput(); err != nil {
 			log.Printf("[BINARY_UPDATE] WARNING: Could not start service: %v, output: %s", err, output)
 		} else {
-			log.Printf("[BINARY_UPDATE] Service started successfully")
+			log.Printf("[BINARY_UPDATE] Service start command executed")
 		}
+
+		// Wait a moment for the service to start
+		time.Sleep(2 * time.Second)
+
+		// Verify the service is actually running
+		log.Printf("[BINARY_UPDATE] Verifying service %s is running...", req.ServiceName)
+		verifyCmd := exec.Command("systemctl", "is-active", "--quiet", req.ServiceName)
+		if err := verifyCmd.Run(); err != nil {
+			log.Printf("[BINARY_UPDATE] ERROR: Service %s failed to start after update!", req.ServiceName)
+			output, _ := exec.Command("systemctl", "status", req.ServiceName).CombinedOutput()
+			log.Printf("[BINARY_UPDATE] Service status: %s", output)
+			writeBinaryUpdateResponse(conn, false, fmt.Sprintf("Service %s failed to start after update", req.ServiceName))
+			return
+		}
+		log.Printf("[BINARY_UPDATE] Service %s verified as running", req.ServiceName)
 	}
 
 	log.Printf("[BINARY_UPDATE] Binary update complete, sending success response")
