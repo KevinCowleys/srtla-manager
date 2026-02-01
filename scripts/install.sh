@@ -469,6 +469,13 @@ install_srtla_installer() {
     log_info "srtla-installer installed to $INSTALLER_DIR/$INSTALLER_NAME"
     # Create systemd service
     INSTALLER_SERVICE_FILE="/etc/systemd/system/${INSTALLER_SERVICE}.service"
+    # Ensure the group exists and add SERVICE_USER to it for socket access
+    if ! getent group "$SERVICE_GROUP" >/dev/null; then
+        log_info "Creating group $SERVICE_GROUP for privileged socket access..."
+        groupadd "$SERVICE_GROUP"
+    fi
+    usermod -a -G "$SERVICE_GROUP" "$SERVICE_USER" || log_warn "Failed to add $SERVICE_USER to $SERVICE_GROUP group"
+
     cat > "$INSTALLER_SERVICE_FILE" << EOF
 [Unit]
 Description=SRTLA Privileged Installer Daemon
@@ -477,7 +484,7 @@ After=network.target
 [Service]
 Type=simple
 User=root
-Group=root
+Group=$SERVICE_GROUP
 # Kill any process using the socket and remove it before starting
 ExecStartPre=/usr/bin/bash -c 'fuser -k /run/srtla-installer.sock 2>/dev/null || true'
 ExecStartPre=/usr/bin/bash -c 'rm -f /run/srtla-installer.sock 2>/dev/null || true'

@@ -81,6 +81,17 @@ func main() {
 	defer os.Remove(socketPath)
 	defer listener.Close()
 	os.Chmod(socketPath, 0660)
+	// Set group ownership to the effective group (e.g., srtla)
+	if grp, err := os.LookupEnv("SRTLA_INSTALLER_GROUP"); err == false || grp == "" {
+		// Default: use current process group
+		gid := os.Getegid()
+		_ = os.Chown(socketPath, -1, gid)
+	} else {
+		// If env var is set, use that group
+		if g, err := lookupGroupID(grp); err == nil {
+			_ = os.Chown(socketPath, -1, g)
+		}
+	}
 	log.Printf("srtla-installer daemon started on %s", socketPath)
 	for {
 		conn, err := listener.Accept()
@@ -90,6 +101,32 @@ func main() {
 		}
 		go handleConn(conn)
 	}
+}
+
+// lookupGroupID returns the GID for a group name
+func lookupGroupID(name string) (int, error) {
+	// Only works on Unix
+	f, err := os.Open("/etc/group")
+	if err != nil {
+		return -1, err
+	}
+	defer f.Close()
+	var gid int
+	var found bool
+	scanner := bufio.NewScanner(f)
+	for scanner.Scan() {
+		line := scanner.Text()
+		fields := strings.Split(line, ":")
+		if len(fields) >= 3 && fields[0] == name {
+			fmt.Sscanf(fields[2], "%d", &gid)
+			found = true
+			break
+		}
+	}
+	if !found {
+		return -1, fmt.Errorf("group not found")
+	}
+	return gid, nil
 }
 
 func handleConn(conn net.Conn) {
