@@ -118,6 +118,11 @@ func (h *Handler) HandleGetReleases(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Skip the latest version (first entry) since it has a dedicated install button
+	if len(releases) > 0 {
+		releases = releases[1:]
+	}
+
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(releases)
 }
@@ -522,6 +527,11 @@ func (h *Handler) HandleGetSRTLASendReleases(w http.ResponseWriter, r *http.Requ
 		logger.Error("Failed to fetch srtla_send releases: %v", err)
 		http.Error(w, fmt.Sprintf("Failed to fetch srtla_send releases: %v", err), http.StatusInternalServerError)
 		return
+	}
+
+	// Skip the latest version (first entry) since it has a dedicated install button
+	if len(releases) > 0 {
+		releases = releases[1:]
 	}
 
 	w.Header().Set("Content-Type", "application/json")
