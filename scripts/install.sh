@@ -590,16 +590,16 @@ main() {
         exit 1
     fi
     log_info "Latest srtla_send version: $SEND_LATEST_VERSION"
-    # Find .deb asset
-    SEND_DEB_URL=$(echo "$SEND_RELEASE_INFO" | grep -o '"browser_download_url": "[^"]*\.deb"' | cut -d'"' -f4 | grep "amd64" | head -1)
+    # Find .deb asset for the detected architecture
+    SEND_DEB_URL=$(echo "$SEND_RELEASE_INFO" | grep -o '"browser_download_url": "[^"]*\.deb"' | cut -d'"' -f4 | grep "$ARCH_TYPE" | head -1)
     if [ -z "$SEND_DEB_URL" ]; then
-        log_error "No .deb package found for srtla_send (amd64)"
+        log_error "No .deb package found for srtla_send ($ARCH_TYPE)"
         log_warn "Available assets:"
         echo "$SEND_RELEASE_INFO" | grep -o '"name": "[^"]*' | cut -d'"' -f4
         exit 1
     fi
     log_info "Download URL for srtla_send .deb: $SEND_DEB_URL"
-    SEND_DEB_FILE="/tmp/srtla_send_${SEND_LATEST_VERSION}_amd64.deb"
+    SEND_DEB_FILE="/tmp/srtla_send_${SEND_LATEST_VERSION}_${ARCH_TYPE}.deb"
     curl -L -o "$SEND_DEB_FILE" "$SEND_DEB_URL" || {
         log_error "Failed to download srtla_send .deb package"
         exit 1
