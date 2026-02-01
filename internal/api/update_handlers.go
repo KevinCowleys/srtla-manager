@@ -218,15 +218,20 @@ func performUpdate(version string, h *Handler) {
 		currentVersion = "v0.0.0-dev"
 	}
 
+	h.broadcastSRTLAInstallProgress("info", fmt.Sprintf("Starting update from %s to %s", currentVersion, version))
+
 	checker := updates.NewChecker(currentVersion)
 
 	// Get release info
+	h.broadcastSRTLAInstallProgress("info", "Fetching release information...")
 	releases, err := checker.GetAllReleases(100)
 	if err != nil {
+		h.broadcastSRTLAInstallProgress("error", fmt.Sprintf("Failed to fetch releases: %v", err))
 		return
 	}
 
 	// Find the target release
+	h.broadcastSRTLAInstallProgress("info", fmt.Sprintf("Looking for release %s", version))
 	var targetRelease *updates.Release
 	for i := range releases {
 		if releases[i].TagName == version {
@@ -236,12 +241,15 @@ func performUpdate(version string, h *Handler) {
 	}
 
 	if targetRelease == nil {
+		h.broadcastSRTLAInstallProgress("error", fmt.Sprintf("Release %s not found", version))
 		return
 	}
 
 	// Create temp directory
+	h.broadcastSRTLAInstallProgress("info", "Creating temporary directory...")
 	tempDir, err := os.MkdirTemp("", "srtla-update-")
 	if err != nil {
+		h.broadcastSRTLAInstallProgress("error", fmt.Sprintf("Failed to create temp directory: %v", err))
 		return
 	}
 	defer os.RemoveAll(tempDir)
@@ -250,6 +258,7 @@ func performUpdate(version string, h *Handler) {
 	tempChecksum := filepath.Join(tempDir, "srtla-manager.sha256")
 
 	// Find download URLs
+	h.broadcastSRTLAInstallProgress("info", "Finding download URLs...")
 	downloadURL := ""
 	checksumURL := ""
 	for _, asset := range targetRelease.Assets {
@@ -262,38 +271,49 @@ func performUpdate(version string, h *Handler) {
 	}
 
 	if downloadURL == "" {
+		h.broadcastSRTLAInstallProgress("error", "No download URL found for binary in release assets")
 		return
 	}
 
 	// Download binary
+	h.broadcastSRTLAInstallProgress("info", "Downloading binary...")
 	if err := downloadFile(downloadURL, tempBinary); err != nil {
+		h.broadcastSRTLAInstallProgress("error", fmt.Sprintf("Failed to download binary: %v", err))
 		return
 	}
 
 	// Download and verify checksum if available
+	h.broadcastSRTLAInstallProgress("info", "Verifying checksum...")
 	if checksumURL != "" {
 		if err := downloadFile(checksumURL, tempChecksum); err == nil {
 			if err := verifyChecksum(tempBinary, tempChecksum); err != nil {
+				h.broadcastSRTLAInstallProgress("error", fmt.Sprintf("Checksum verification failed: %v", err))
 				return
 			}
 		}
 	}
 
 	// Create backup
+	h.broadcastSRTLAInstallProgress("info", "Creating backup of current binary...")
 	if err := os.MkdirAll(backupDir, 0755); err != nil {
+		h.broadcastSRTLAInstallProgress("error", fmt.Sprintf("Failed to create backup directory: %v", err))
 		return
 	}
 
 	backupFile := filepath.Join(backupDir, fmt.Sprintf("srtla-manager.%d.bak", time.Now().Unix()))
 	if err := copyFile(binPath, backupFile); err != nil {
+		h.broadcastSRTLAInstallProgress("error", fmt.Sprintf("Failed to create backup: %v", err))
 		return
 	}
 
 	// Stop service
+	h.broadcastSRTLAInstallProgress("info", "Stopping srtla-manager service...")
 	exec.Command("sudo", "systemctl", "stop", "srtla-manager").Run()
 
 	// Replace binary
+	h.broadcastSRTLAInstallProgress("info", "Replacing binary...")
 	if err := copyFile(tempBinary, binPath); err != nil {
+		h.broadcastSRTLAInstallProgress("error", fmt.Sprintf("Failed to replace binary: %v", err))
 		// Restore from backup
 		copyFile(backupFile, binPath)
 		exec.Command("sudo", "systemctl", "start", "srtla-manager").Run()
@@ -303,15 +323,21 @@ func performUpdate(version string, h *Handler) {
 	os.Chmod(binPath, 0755)
 
 	// Start service
+	h.broadcastSRTLAInstallProgress("info", "Starting srtla-manager service...")
 	exec.Command("sudo", "systemctl", "start", "srtla-manager").Run()
 
 	// Wait a moment and verify
 	time.Sleep(2 * time.Second)
+	h.broadcastSRTLAInstallProgress("info", "Verifying service is running...")
 	if err := exec.Command("sudo", "systemctl", "is-active", "--quiet", "srtla-manager").Run(); err != nil {
+		h.broadcastSRTLAInstallProgress("error", "Service failed to start after update, rolling back...")
 		// Service failed, rollback
 		copyFile(backupFile, binPath)
 		exec.Command("sudo", "systemctl", "start", "srtla-manager").Run()
+		return
 	}
+
+	h.broadcastSRTLAInstallProgress("success", fmt.Sprintf("Successfully updated to version %s", version))
 }
 
 // performRollback restores a previous version
