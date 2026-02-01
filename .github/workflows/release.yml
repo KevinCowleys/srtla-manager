@@ -65,6 +65,11 @@ jobs:
             echo "Building srtla-installer for linux/$ARCH..."
             env GOOS=linux GOARCH=$GOARCH GOARM=$GOARM \
               go build \
+                -ldflags "-X 'main.Version=${VERSION}' \
+                          -X 'main.Commit=${GIT_COMMIT}' \
+                          -X 'main.Branch=${GIT_BRANCH}' \
+                          -X 'main.BuildTime=${BUILD_TIME}' \
+                          -X 'main.Builder=github-actions'" \
                 -o "dist/${INSTALLER_OUTPUT}" \
                 ./cmd/srtla-installer
 

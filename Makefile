@@ -19,6 +19,14 @@ LDFLAGS=-ldflags "\
 	-X 'srtla-manager/internal/version.BuildTime=$(BUILD_TIME)' \
 	-X 'srtla-manager/internal/version.Builder=$(BUILDER)'"
 
+# Build flags for installer version injection
+INSTALLER_LDFLAGS=-ldflags "\
+	-X 'main.Version=$(VERSION)' \
+	-X 'main.Commit=$(COMMIT)' \
+	-X 'main.Branch=$(BRANCH)' \
+	-X 'main.BuildTime=$(BUILD_TIME)' \
+	-X 'main.Builder=$(BUILDER)'"
+
 # Build web assets (optional - can use modular files directly)
 build-web:
 	@echo "Building web assets..."
@@ -29,6 +37,8 @@ build:
 	@echo "Building $(BINARY_NAME) (version: $(VERSION))..."
 	@mkdir -p $(BIN_DIR)
 	go build $(LDFLAGS) -o $(BIN_DIR)/$(BINARY_NAME) ./cmd/srtla-manager
+	@echo "Building srtla-installer (version: $(VERSION))..."
+	go build $(INSTALLER_LDFLAGS) -o $(BIN_DIR)/srtla-installer ./cmd/srtla-installer
 
 # Build with bundled/minified web assets
 build-prod: build-web build
