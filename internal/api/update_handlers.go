@@ -306,55 +306,48 @@ func performUpdate(version string, h *Handler) {
 		return
 	}
 
-	// Stop service
-	h.broadcastSRTLAInstallProgress("info", "Stopping srtla-manager service...")
-	exec.Command("sudo", "systemctl", "stop", "srtla-manager").Run()
-
-	// Replace binary
-	h.broadcastSRTLAInstallProgress("info", "Replacing binary...")
-	if err := copyFile(tempBinary, binPath); err != nil {
-		h.broadcastSRTLAInstallProgress("error", fmt.Sprintf("Failed to replace binary: %v", err))
-		// Restore from backup
-		copyFile(backupFile, binPath)
-		exec.Command("sudo", "systemctl", "start", "srtla-manager").Run()
+	// Use privileged installer to handle binary replacement
+	h.broadcastSRTLAInstallProgress("info", "Requesting privileged binary update...")
+	updateResp, err := internal.UpdateBinaryWithInstaller(tempBinary, binPath, "srtla-manager", backupFile)
+	if err != nil {
+		h.broadcastSRTLAInstallProgress("error", fmt.Sprintf("Failed to communicate with installer: %v", err))
 		return
 	}
 
-	os.Chmod(binPath, 0755)
+	if !updateResp.Success {
+		h.broadcastSRTLAInstallProgress("error", fmt.Sprintf("Binary update failed: %s", updateResp.Error))
+		return
+	}
 
-	// Start service
-	h.broadcastSRTLAInstallProgress("info", "Starting srtla-manager service...")
-	exec.Command("sudo", "systemctl", "start", "srtla-manager").Run()
+	h.broadcastSRTLAInstallProgress("info", "Binary replaced successfully, verifying service...")
 
 	// Wait a moment and verify
 	time.Sleep(2 * time.Second)
 	h.broadcastSRTLAInstallProgress("info", "Verifying service is running...")
 	if err := exec.Command("sudo", "systemctl", "is-active", "--quiet", "srtla-manager").Run(); err != nil {
 		h.broadcastSRTLAInstallProgress("error", "Service failed to start after update, rolling back...")
-		// Service failed, rollback
-		copyFile(backupFile, binPath)
-		exec.Command("sudo", "systemctl", "start", "srtla-manager").Run()
+		// Perform rollback via installer
+		internal.UpdateBinaryWithInstaller(backupFile, binPath, "srtla-manager", "")
 		return
 	}
 
 	h.broadcastSRTLAInstallProgress("success", fmt.Sprintf("Successfully updated to version %s", version))
+
+	// Check for and perform srtla-installer updates if available
+	h.updateSrtlaInstallerIfNeeded()
 }
 
 // performRollback restores a previous version
 func performRollback(backupFile string) error {
-	// Stop service
-	exec.Command("sudo", "systemctl", "stop", "srtla-manager").Run()
-
-	// Restore binary
-	if err := copyFile(backupFile, binPath); err != nil {
-		exec.Command("sudo", "systemctl", "start", "srtla-manager").Run()
-		return err
+	// Use privileged installer to handle binary restoration
+	updateResp, err := internal.UpdateBinaryWithInstaller(backupFile, binPath, "srtla-manager", "")
+	if err != nil {
+		return fmt.Errorf("failed to communicate with installer: %w", err)
 	}
 
-	os.Chmod(binPath, 0755)
-
-	// Start service
-	exec.Command("sudo", "systemctl", "start", "srtla-manager").Run()
+	if !updateResp.Success {
+		return fmt.Errorf("binary restoration failed: %s", updateResp.Error)
+	}
 
 	// Verify
 	time.Sleep(2 * time.Second)
@@ -709,52 +702,55 @@ func (h *Handler) broadcastSRTLAInstallProgress(level, message string) {
 	}
 }
 
-// --- SRTLA Installer Update Logic ---
-// Call updateSrtlaInstallerIfNeeded() as part of performUpdate
-func updateSrtlaInstallerIfNeeded() {
+// updateSrtlaInstallerIfNeeded checks for and performs srtla-installer updates
+func (h *Handler) updateSrtlaInstallerIfNeeded() {
 	const installerPath = "/usr/local/bin/srtla-installer"
-	currentVersion := internal.GetInstallerVersion(installerPath)
-	checker := updates.NewInstallerChecker(currentVersion)
-	release, downloadURL, err := checker.GetLatestRelease()
-	if err != nil {
-		logger.Error("Failed to check srtla-installer updates: %v", err)
-		return
-	}
-	if release == nil || downloadURL == "" {
-		logger.Info("No srtla-installer update available or asset missing.")
-		return
-	}
-	if release.TagName == currentVersion {
-		logger.Info("srtla-installer is up to date (%s)", currentVersion)
-		return
-	}
-	logger.Info("Updating srtla-installer from %s to %s", currentVersion, release.TagName)
 
-	// Download new binary
+	h.broadcastSRTLAInstallProgress("info", "Checking for srtla-installer updates...")
+
+	checker := updates.NewInstallerChecker("v0.0.0-dev") // Placeholder version
+	latestRelease, downloadURL, err := checker.GetLatestRelease()
+	if err != nil {
+		h.broadcastSRTLAInstallProgress("info", fmt.Sprintf("Unable to check installer updates: %v", err))
+		return
+	}
+
+	if latestRelease == nil || downloadURL == "" {
+		h.broadcastSRTLAInstallProgress("info", "No installer update available")
+		return
+	}
+
+	h.broadcastSRTLAInstallProgress("info", fmt.Sprintf("Found installer update: %s", latestRelease.TagName))
+
+	// Download the new installer
 	tempDir, err := os.MkdirTemp("", "srtla-installer-update-")
 	if err != nil {
-		logger.Error("Failed to create temp dir: %v", err)
+		h.broadcastSRTLAInstallProgress("error", fmt.Sprintf("Failed to create temp dir: %v", err))
 		return
 	}
 	defer os.RemoveAll(tempDir)
+
 	tempBinary := filepath.Join(tempDir, "srtla-installer")
+	h.broadcastSRTLAInstallProgress("info", "Downloading new srtla-installer...")
 	if err := downloadFile(downloadURL, tempBinary); err != nil {
-		logger.Error("Failed to download srtla-installer: %v", err)
+		h.broadcastSRTLAInstallProgress("error", fmt.Sprintf("Failed to download installer: %v", err))
 		return
 	}
+
 	os.Chmod(tempBinary, 0755)
 
-	// Stop service
-	exec.Command("sudo", "systemctl", "stop", "srtla-installer").Run()
-
-	// Replace binary (privileged)
-	if err := copyFile(tempBinary, installerPath); err != nil {
-		logger.Error("Failed to replace srtla-installer: %v", err)
+	// Request the installer to update itself
+	h.broadcastSRTLAInstallProgress("info", "Requesting installer to self-update...")
+	resp, err := internal.UpdateInstallerSelf(tempBinary, installerPath)
+	if err != nil {
+		h.broadcastSRTLAInstallProgress("error", fmt.Sprintf("Failed to communicate with installer: %v", err))
 		return
 	}
-	os.Chmod(installerPath, 0755)
 
-	// Start service
-	exec.Command("sudo", "systemctl", "start", "srtla-installer").Run()
-	logger.Info("srtla-installer updated to %s", release.TagName)
+	if !resp.Success {
+		h.broadcastSRTLAInstallProgress("error", fmt.Sprintf("Installer self-update failed: %s", resp.Error))
+		return
+	}
+
+	h.broadcastSRTLAInstallProgress("success", fmt.Sprintf("srtla-installer updated to %s", latestRelease.TagName))
 }

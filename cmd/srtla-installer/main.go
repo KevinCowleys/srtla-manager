@@ -12,6 +12,8 @@ import (
 	"os/exec"
 	"runtime"
 	"strings"
+	"sync"
+	"time"
 )
 
 // Version/build info (set via -ldflags)
@@ -22,6 +24,9 @@ var (
 	BuildTime = "unknown"
 	Builder   = "unknown"
 )
+
+// Track pending update operations
+var pendingUpdates sync.WaitGroup
 
 func DetailedInfo() string {
 	return fmt.Sprintf(
@@ -50,6 +55,32 @@ type InstallRequest struct {
 type InstallResponse struct {
 	Success bool   `json:"success"`
 	Message string `json:"message"`
+}
+
+type UpdateBinaryRequest struct {
+	Token       string `json:"token"`
+	SourcePath  string `json:"source_path"`
+	TargetPath  string `json:"target_path"`
+	ServiceName string `json:"service_name"`
+	BackupPath  string `json:"backup_path"`
+}
+
+type UpdateBinaryResponse struct {
+	Success bool   `json:"success"`
+	Message string `json:"message"`
+	Error   string `json:"error,omitempty"`
+}
+
+type UpdateInstallerRequest struct {
+	Token      string `json:"token"`
+	SourcePath string `json:"source_path"`
+	TargetPath string `json:"target_path"`
+}
+
+type UpdateInstallerResponse struct {
+	Success bool   `json:"success"`
+	Message string `json:"message"`
+	Error   string `json:"error,omitempty"`
 }
 
 func main() {
@@ -138,20 +169,40 @@ func handleConn(conn net.Conn) {
 		return
 	}
 	line = strings.TrimSpace(line)
-	var req InstallRequest
-	if err := json.Unmarshal([]byte(line), &req); err != nil {
+
+	// Try to detect request type by checking which fields are present
+	// Check for self-update request first (has SourcePath but no TargetPath pointing to a service)
+	var updateInstallerReq UpdateInstallerRequest
+	if err := json.Unmarshal([]byte(line), &updateInstallerReq); err == nil &&
+		updateInstallerReq.SourcePath != "" &&
+		!strings.Contains(updateInstallerReq.TargetPath, "/srtla-manager") {
+		// This is a self-update request
+		handleInstallerUpdate(conn, updateInstallerReq)
+		return
+	}
+
+	// Try binary update request (has ServiceName)
+	var updateReq UpdateBinaryRequest
+	if err := json.Unmarshal([]byte(line), &updateReq); err == nil && updateReq.SourcePath != "" {
+		handleBinaryUpdate(conn, updateReq)
+		return
+	}
+
+	// Fall back to InstallRequest
+	var installReq InstallRequest
+	if err := json.Unmarshal([]byte(line), &installReq); err != nil {
 		writeResponse(conn, false, "Invalid JSON: "+err.Error())
 		return
 	}
-	if !strings.HasSuffix(req.DebPath, ".deb") {
+	if !strings.HasSuffix(installReq.DebPath, ".deb") {
 		writeResponse(conn, false, "Invalid .deb file path")
 		return
 	}
-	if _, err := os.Stat(req.DebPath); err != nil {
+	if _, err := os.Stat(installReq.DebPath); err != nil {
 		writeResponse(conn, false, "File not found: "+err.Error())
 		return
 	}
-	cmd := exec.Command("dpkg", "-i", req.DebPath)
+	cmd := exec.Command("dpkg", "-i", installReq.DebPath)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		writeResponse(conn, false, fmt.Sprintf("dpkg failed: %v\n%s", err, output))
@@ -160,8 +211,122 @@ func handleConn(conn net.Conn) {
 	writeResponse(conn, true, string(output))
 }
 
+// handleInstallerUpdate handles self-update of the srtla-installer daemon
+func handleInstallerUpdate(conn net.Conn, req UpdateInstallerRequest) {
+	// Validate paths
+	if req.SourcePath == "" || req.TargetPath == "" {
+		writeInstallerUpdateResponse(conn, false, "Source and target paths required")
+		return
+	}
+
+	if _, err := os.Stat(req.SourcePath); err != nil {
+		writeInstallerUpdateResponse(conn, false, fmt.Sprintf("Source file not found: %v", err))
+		return
+	}
+
+	// Fork a background goroutine to handle the update
+	// Track it with WaitGroup so we can ensure it completes before exit
+	pendingUpdates.Add(1)
+	go func() {
+		defer pendingUpdates.Done()
+
+		// Wait a brief moment for the parent to finish responding
+		time.Sleep(500 * time.Millisecond)
+
+		// Replace the binary using rename (atomic on Linux)
+		if err := os.Rename(req.SourcePath, req.TargetPath); err != nil {
+			log.Printf("Failed to replace installer binary: %v", err)
+			return
+		}
+
+		// Ensure proper permissions
+		os.Chmod(req.TargetPath, 0755)
+
+		// Restart the service
+		exec.Command("systemctl", "restart", "srtla-installer").Run()
+		log.Printf("srtla-installer updated and restarted")
+	}()
+
+	writeInstallerUpdateResponse(conn, true, "Update initiated, installer will restart shortly")
+}
+
+// handleBinaryUpdate handles privileged binary replacement
+func handleBinaryUpdate(conn net.Conn, req UpdateBinaryRequest) {
+	// Validate paths
+	if req.SourcePath == "" || req.TargetPath == "" {
+		writeBinaryUpdateResponse(conn, false, "Source and target paths required")
+		return
+	}
+
+	if _, err := os.Stat(req.SourcePath); err != nil {
+		writeBinaryUpdateResponse(conn, false, fmt.Sprintf("Source file not found: %v", err))
+		return
+	}
+
+	// Create backup if specified
+	if req.BackupPath != "" {
+		if err := copyFile(req.TargetPath, req.BackupPath); err != nil {
+			writeBinaryUpdateResponse(conn, false, fmt.Sprintf("Failed to create backup: %v", err))
+			return
+		}
+	}
+
+	// Stop the service if specified
+	if req.ServiceName != "" {
+		exec.Command("systemctl", "stop", req.ServiceName).Run()
+		// Give it a moment to fully stop
+		exec.Command("sleep", "0.5").Run()
+	}
+
+	// Replace the binary using rename (atomic on Linux)
+	if err := os.Rename(req.SourcePath, req.TargetPath); err != nil {
+		writeBinaryUpdateResponse(conn, false, fmt.Sprintf("Failed to replace binary: %v", err))
+		return
+	}
+
+	// Ensure proper permissions
+	os.Chmod(req.TargetPath, 0755)
+
+	// Restart the service if specified
+	if req.ServiceName != "" {
+		exec.Command("systemctl", "start", req.ServiceName).Run()
+	}
+
+	writeBinaryUpdateResponse(conn, true, "Binary updated successfully")
+}
+
+// copyFile copies src to dst
+func copyFile(src, dst string) error {
+	source, err := os.Open(src)
+	if err != nil {
+		return err
+	}
+	defer source.Close()
+
+	destination, err := os.Create(dst)
+	if err != nil {
+		return err
+	}
+	defer destination.Close()
+
+	_, err = io.Copy(destination, source)
+	return err
+}
+
 func writeResponse(w io.Writer, success bool, msg string) {
 	resp := InstallResponse{Success: success, Message: msg}
+	data, _ := json.Marshal(resp)
+	w.Write(append(data, '\n'))
+}
+
+func writeBinaryUpdateResponse(w io.Writer, success bool, msg string) {
+	resp := UpdateBinaryResponse{Success: success, Message: msg}
+	data, _ := json.Marshal(resp)
+	w.Write(append(data, '\n'))
+}
+
+func writeInstallerUpdateResponse(w io.Writer, success bool, msg string) {
+	resp := UpdateInstallerResponse{Success: success, Message: msg}
 	data, _ := json.Marshal(resp)
 	w.Write(append(data, '\n'))
 }
