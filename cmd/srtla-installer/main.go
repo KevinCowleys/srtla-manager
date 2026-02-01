@@ -213,85 +213,133 @@ func handleConn(conn net.Conn) {
 
 // handleInstallerUpdate handles self-update of the srtla-installer daemon
 func handleInstallerUpdate(conn net.Conn, req UpdateInstallerRequest) {
+	log.Printf("[UPDATE] Received installer update request: source=%s target=%s", req.SourcePath, req.TargetPath)
+
 	// Validate paths
 	if req.SourcePath == "" || req.TargetPath == "" {
+		log.Printf("[UPDATE] FAILED: Missing paths")
 		writeInstallerUpdateResponse(conn, false, "Source and target paths required")
 		return
 	}
 
 	if _, err := os.Stat(req.SourcePath); err != nil {
+		log.Printf("[UPDATE] FAILED: Source file not found: %v", err)
 		writeInstallerUpdateResponse(conn, false, fmt.Sprintf("Source file not found: %v", err))
 		return
 	}
+
+	log.Printf("[UPDATE] Source file validated, spawning update goroutine")
 
 	// Fork a background goroutine to handle the update
 	// Track it with WaitGroup so we can ensure it completes before exit
 	pendingUpdates.Add(1)
 	go func() {
 		defer pendingUpdates.Done()
+		log.Printf("[UPDATE] Update goroutine started")
 
 		// Wait a brief moment for the parent to finish responding
 		time.Sleep(500 * time.Millisecond)
+		log.Printf("[UPDATE] Wait period complete, proceeding with binary replacement")
 
 		// Replace the binary using rename (atomic on Linux)
 		if err := os.Rename(req.SourcePath, req.TargetPath); err != nil {
-			log.Printf("Failed to replace installer binary: %v", err)
+			log.Printf("[UPDATE] FAILED: Could not replace binary: %v", err)
 			return
 		}
+		log.Printf("[UPDATE] Binary replaced successfully")
 
 		// Ensure proper permissions
-		os.Chmod(req.TargetPath, 0755)
+		if err := os.Chmod(req.TargetPath, 0755); err != nil {
+			log.Printf("[UPDATE] WARNING: Could not set permissions: %v", err)
+		} else {
+			log.Printf("[UPDATE] Permissions set to 0755")
+		}
 
 		// Restart the service
-		exec.Command("systemctl", "restart", "srtla-installer").Run()
-		log.Printf("srtla-installer updated and restarted")
+		log.Printf("[UPDATE] Restarting srtla-installer service...")
+		cmd := exec.Command("systemctl", "restart", "srtla-installer")
+		if output, err := cmd.CombinedOutput(); err != nil {
+			log.Printf("[UPDATE] WARNING: systemctl restart failed: %v, output: %s", err, output)
+		} else {
+			log.Printf("[UPDATE] Service restart command executed successfully")
+		}
+		log.Printf("[UPDATE] Update goroutine complete")
 	}()
 
+	log.Printf("[UPDATE] Sending success response to client")
 	writeInstallerUpdateResponse(conn, true, "Update initiated, installer will restart shortly")
 }
 
 // handleBinaryUpdate handles privileged binary replacement
 func handleBinaryUpdate(conn net.Conn, req UpdateBinaryRequest) {
+	log.Printf("[BINARY_UPDATE] Received binary update request: source=%s target=%s service=%s backup=%s",
+		req.SourcePath, req.TargetPath, req.ServiceName, req.BackupPath)
+
 	// Validate paths
 	if req.SourcePath == "" || req.TargetPath == "" {
+		log.Printf("[BINARY_UPDATE] FAILED: Missing paths")
 		writeBinaryUpdateResponse(conn, false, "Source and target paths required")
 		return
 	}
 
 	if _, err := os.Stat(req.SourcePath); err != nil {
+		log.Printf("[BINARY_UPDATE] FAILED: Source file not found: %v", err)
 		writeBinaryUpdateResponse(conn, false, fmt.Sprintf("Source file not found: %v", err))
 		return
 	}
 
 	// Create backup if specified
 	if req.BackupPath != "" {
+		log.Printf("[BINARY_UPDATE] Creating backup at %s", req.BackupPath)
 		if err := copyFile(req.TargetPath, req.BackupPath); err != nil {
+			log.Printf("[BINARY_UPDATE] FAILED: Could not create backup: %v", err)
 			writeBinaryUpdateResponse(conn, false, fmt.Sprintf("Failed to create backup: %v", err))
 			return
 		}
+		log.Printf("[BINARY_UPDATE] Backup created successfully")
 	}
 
 	// Stop the service if specified
 	if req.ServiceName != "" {
-		exec.Command("systemctl", "stop", req.ServiceName).Run()
+		log.Printf("[BINARY_UPDATE] Stopping service %s", req.ServiceName)
+		cmd := exec.Command("systemctl", "stop", req.ServiceName)
+		if output, err := cmd.CombinedOutput(); err != nil {
+			log.Printf("[BINARY_UPDATE] WARNING: Could not stop service: %v, output: %s", err, output)
+		} else {
+			log.Printf("[BINARY_UPDATE] Service stopped successfully")
+		}
 		// Give it a moment to fully stop
-		exec.Command("sleep", "0.5").Run()
+		time.Sleep(500 * time.Millisecond)
 	}
 
 	// Replace the binary using rename (atomic on Linux)
+	log.Printf("[BINARY_UPDATE] Replacing binary: %s -> %s", req.SourcePath, req.TargetPath)
 	if err := os.Rename(req.SourcePath, req.TargetPath); err != nil {
+		log.Printf("[BINARY_UPDATE] FAILED: Could not replace binary: %v", err)
 		writeBinaryUpdateResponse(conn, false, fmt.Sprintf("Failed to replace binary: %v", err))
 		return
 	}
+	log.Printf("[BINARY_UPDATE] Binary replaced successfully")
 
 	// Ensure proper permissions
-	os.Chmod(req.TargetPath, 0755)
+	if err := os.Chmod(req.TargetPath, 0755); err != nil {
+		log.Printf("[BINARY_UPDATE] WARNING: Could not set permissions: %v", err)
+	} else {
+		log.Printf("[BINARY_UPDATE] Permissions set to 0755")
+	}
 
 	// Restart the service if specified
 	if req.ServiceName != "" {
-		exec.Command("systemctl", "start", req.ServiceName).Run()
+		log.Printf("[BINARY_UPDATE] Starting service %s", req.ServiceName)
+		cmd := exec.Command("systemctl", "start", req.ServiceName)
+		if output, err := cmd.CombinedOutput(); err != nil {
+			log.Printf("[BINARY_UPDATE] WARNING: Could not start service: %v, output: %s", err, output)
+		} else {
+			log.Printf("[BINARY_UPDATE] Service started successfully")
+		}
 	}
 
+	log.Printf("[BINARY_UPDATE] Binary update complete, sending success response")
 	writeBinaryUpdateResponse(conn, true, "Binary updated successfully")
 }
 
