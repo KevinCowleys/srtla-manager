@@ -9,6 +9,7 @@ import (
 const installerSocket = "/run/srtla-installer.sock"
 
 type InstallRequest struct {
+	Token   string `json:"token"`
 	DebPath string `json:"deb_path"`
 }
 
@@ -29,7 +30,7 @@ func InstallDebPackage(debPath string) (InstallResponse, error) {
 	enc := json.NewEncoder(conn)
 	dec := json.NewDecoder(conn)
 
-	if err := enc.Encode(InstallRequest{DebPath: debPath}); err != nil {
+	if err := enc.Encode(InstallRequest{Token: "", DebPath: debPath}); err != nil {
 		return InstallResponse{}, fmt.Errorf("encode: %w", err)
 	}
 

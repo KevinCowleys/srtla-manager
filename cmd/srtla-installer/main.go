@@ -143,10 +143,6 @@ func handleConn(conn net.Conn) {
 		writeResponse(conn, false, "Invalid JSON: "+err.Error())
 		return
 	}
-	if req.Token != authToken {
-		writeResponse(conn, false, "Unauthorized: invalid token")
-		return
-	}
 	if !strings.HasSuffix(req.DebPath, ".deb") {
 		writeResponse(conn, false, "Invalid .deb file path")
 		return
